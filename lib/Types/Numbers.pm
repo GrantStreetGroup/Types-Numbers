@@ -183,7 +183,10 @@ my $_PerlNum = $meta->add_type(
     name       => 'PerlNum',
     parent     => $_NumLike,
     library    => __PACKAGE__,
-    constraint => Types::Standard::LaxNum->constraint,
+
+    # LaxNum has parental constraints that matter, so we can't just blindly steal its own
+    # constraint by itself.  The inlined sub, OTOH, is self-sufficient.
+    constraint => sub { Types::Standard::LaxNum->check($_) },
     inlined    => Types::Standard::LaxNum->inlined,
 );
 
