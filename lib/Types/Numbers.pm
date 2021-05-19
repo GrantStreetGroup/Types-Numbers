@@ -54,12 +54,12 @@ my @df_max_int_parts = Data::Float::float_parts( Data::Float::max_integer );
 my $DF_MAX_INT = $bigtwo->copy->bpow($df_max_int_parts[1])->bmul($df_max_int_parts[2])->as_int;
 
 my $SAFE_NUM_MIN = Math::BigInt->new(
-   Data::Integer::min_signed_natint   < $DF_MAX_INT * -1 ?
-   Data::Integer::min_signed_natint   : $DF_MAX_INT * -1
+    Data::Integer::min_signed_natint   < $DF_MAX_INT * -1 ?
+    Data::Integer::min_signed_natint   : $DF_MAX_INT * -1
 );
 my $SAFE_NUM_MAX = Math::BigInt->new(
-   Data::Integer::max_unsigned_natint > $DF_MAX_INT *  1 ?
-   Data::Integer::max_unsigned_natint : $DF_MAX_INT *  1,
+    Data::Integer::max_unsigned_natint > $DF_MAX_INT *  1 ?
+    Data::Integer::max_unsigned_natint : $DF_MAX_INT *  1,
 );
 
 my $meta = __PACKAGE__->meta;
@@ -119,11 +119,11 @@ C<StrictNum>, it will accept C<NaN> and C<Inf> numbers.
 # Moose and Type::Tiny types both don't seem to support Math::Big* = Num.
 # So, we have to start almost from stratch.
 my $_NumLike = $meta->add_type(
-   name       => 'NumLike',
-   parent     => Types::Standard::Defined,
-   library    => __PACKAGE__,
-   constraint => sub { looks_like_number $_ },
-   inlined    => sub { "Scalar::Util::looks_like_number($_[1])" },
+    name       => 'NumLike',
+    parent     => Types::Standard::Defined,
+    library    => __PACKAGE__,
+    constraint => sub { looks_like_number $_ },
+    inlined    => sub { "Scalar::Util::looks_like_number($_[1])" },
 );
 
 =head3 NumRange[`n, `p]
@@ -134,43 +134,43 @@ inclusive.
 =cut
 
 my $_NumRange = $meta->add_type(
-   name       => 'NumRange',
-   parent     => $_NumLike,
-   library    => __PACKAGE__,
-   # kinda pointless without the parameters
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my ($min, $max) = (shift, shift);
-      looks_like_number($min) or _croak( "First parameter to NumRange[`n, `p] expected to be a number; got $min");
-      looks_like_number($max) or _croak("Second parameter to NumRange[`n, `p] expected to be a number; got $max");
+    name       => 'NumRange',
+    parent     => $_NumLike,
+    library    => __PACKAGE__,
+    # kinda pointless without the parameters
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my ($min, $max) = (shift, shift);
+        looks_like_number($min) or _croak( "First parameter to NumRange[`n, `p] expected to be a number; got $min");
+        looks_like_number($max) or _croak("Second parameter to NumRange[`n, `p] expected to be a number; got $max");
 
-      my ($Imin, $Imax) = ($min, $max);
-      $Imin = blessed($min)."\->new('$min')" if (blessed $min);
-      $Imax = blessed($max)."\->new('$max')" if (blessed $max);
+        my ($Imin, $Imax) = ($min, $max);
+        $Imin = blessed($min)."\->new('$min')" if (blessed $min);
+        $Imax = blessed($max)."\->new('$max')" if (blessed $max);
 
-      Type::Tiny->new(
-         display_name => "NumRange[$min, $max]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => sub {
-            my $val = $_;
-            $val >= $min && $val <= $max;
-         },
-         inlined    => sub {
-            my ($self, $val) = @_;
-            $self->parent->inline_check($val)." && $val >= $Imin && $val <= $Imax";
-         },
-      );
-   },
+        Type::Tiny->new(
+            display_name => "NumRange[$min, $max]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => sub {
+                my $val = $_;
+                $val >= $min && $val <= $max;
+            },
+            inlined    => sub {
+                my ($self, $val) = @_;
+                $self->parent->inline_check($val)." && $val >= $Imin && $val <= $Imax";
+            },
+        );
+    },
 );
 
 # we need to optimize out all of the NumLike checks
 my $_NumRange_perlsafe = Type::Tiny->new(
-   display_name => "_NumRange_perlsafe",
-   parent     => $_NumLike,
-   # no equals because MAX+1 = MAX after truncation
-   constraint => sub { $_ > $SAFE_NUM_MIN && $_ < $SAFE_NUM_MAX },
-   inlined    => sub { "$_[1] > ".$SAFE_NUM_MIN." && $_[1] < ".$SAFE_NUM_MAX },
+    display_name => "_NumRange_perlsafe",
+    parent     => $_NumLike,
+    # no equals because MAX+1 = MAX after truncation
+    constraint => sub { $_ > $SAFE_NUM_MIN && $_ < $SAFE_NUM_MAX },
+    inlined    => sub { "$_[1] > ".$SAFE_NUM_MIN." && $_[1] < ".$SAFE_NUM_MAX },
 );
 
 =head3 PerlNum
@@ -180,11 +180,11 @@ Exactly like C<LaxNum>, but with a different parent.  Only accepts unblessed num
 =cut
 
 my $_PerlNum = $meta->add_type(
-   name       => 'PerlNum',
-   parent     => $_NumLike,
-   library    => __PACKAGE__,
-   constraint => Types::Standard::LaxNum->constraint,
-   inlined    => Types::Standard::LaxNum->inlined,
+    name       => 'PerlNum',
+    parent     => $_NumLike,
+    library    => __PACKAGE__,
+    constraint => Types::Standard::LaxNum->constraint,
+    inlined    => Types::Standard::LaxNum->inlined,
 );
 
 =head3 BlessedNum
@@ -204,36 +204,36 @@ numbers at least as big as 128-bit integers.
 =cut
 
 my $_BlessedNum = $meta->add_type( Type::Tiny::Intersection->new(
-   name         => 'BlessedNum',
-   display_name => 'BlessedNum',
-   library      => __PACKAGE__,
-   type_constraints => [ $_NumLike, Types::Standard::Object ],
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my $digits = shift;
-      $digits =~ /\A[0-9]+\z/ or _croak("Parameter to BlessedNum[`d] expected to be a positive integer; got $digits");
+    name         => 'BlessedNum',
+    display_name => 'BlessedNum',
+    library      => __PACKAGE__,
+    type_constraints => [ $_NumLike, Types::Standard::Object ],
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my $digits = shift;
+        $digits =~ /\A[0-9]+\z/ or _croak("Parameter to BlessedNum[`d] expected to be a positive integer; got $digits");
 
-      my $parent = $self;
-      Type::Tiny->new(
-         display_name => "BlessedNum[$digits]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => sub {
-            my $val = $_;
+        my $parent = $self;
+        Type::Tiny->new(
+            display_name => "BlessedNum[$digits]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => sub {
+                my $val = $_;
 
-            $val->can('accuracy')  && $val->accuracy  >= $digits ||
-            $val->can('div_scale') && $val->div_scale >= $digits;
-         },
-         inlined    => sub {
-            my ($self, $val) = @_;
+                $val->can('accuracy')  && $val->accuracy  >= $digits ||
+                $val->can('div_scale') && $val->div_scale >= $digits;
+            },
+            inlined    => sub {
+                my ($self, $val) = @_;
 
-            $parent->inline_check($val).' && ( '.
-               "$val->can('accuracy')  && $val->accuracy  && $val->accuracy  >= $digits || ".
-               "$val->can('div_scale') && $val->div_scale && $val->div_scale >= $digits ".
-            ')';
-         },
-      );
-   },
+                $parent->inline_check($val).' && ( '.
+                    "$val->can('accuracy')  && $val->accuracy  && $val->accuracy  >= $digits || ".
+                    "$val->can('div_scale') && $val->div_scale && $val->div_scale >= $digits ".
+                ')';
+            },
+        );
+    },
 ) );
 
 =head3 NaN
@@ -244,22 +244,22 @@ checked via C<is_nan>.
 =cut
 
 my $_NaN = $meta->add_type(
-   name       => 'NaN',
-   parent     => $_NumLike,
-   library    => __PACKAGE__,
-   constraint => sub {
-      my $val = $_;
+    name       => 'NaN',
+    parent     => $_NumLike,
+    library    => __PACKAGE__,
+    constraint => sub {
+        my $val = $_;
 
-      Types::Standard::Object->check($val) && $val->can('is_nan') && $val->is_nan ||
-      Data::Float::float_is_nan($val);
-   },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val).' && ('.
-      '   '.Types::Standard::Object->inline_check($val)." && $val->can('is_nan') && $val->is_nan ||".
-      '   '."Data::Float::float_is_nan($val)".
-      ')';
-   },
+        Types::Standard::Object->check($val) && $val->can('is_nan') && $val->is_nan ||
+        Data::Float::float_is_nan($val);
+    },
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $self->parent->inline_check($val).' && ('.
+        '   '.Types::Standard::Object->inline_check($val)." && $val->can('is_nan') && $val->is_nan ||".
+        '   '."Data::Float::float_is_nan($val)".
+        ')';
+    },
 );
 
 =head3 Inf
@@ -278,69 +278,69 @@ C<Inf>, checked via C<is_inf>.  The parameter must be a plus or minus character.
 =cut
 
 my $_Inf = $meta->add_type(
-   name       => 'Inf',
-   parent     => $_NumLike,
-   library    => __PACKAGE__,
-   constraint => sub {
-      my $val = $_;
+    name       => 'Inf',
+    parent     => $_NumLike,
+    library    => __PACKAGE__,
+    constraint => sub {
+        my $val = $_;
 
-      Types::Standard::Object->check($val) && $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) ||
-      Data::Float::float_is_infinite($val);
-   },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val).' && ('.
-      '   '.Types::Standard::Object->inline_check($val)." && $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) ||".
-      '   '."Data::Float::float_is_infinite($val)".
-      ')';
-   },
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my $sign = shift;
-      $sign =~ /\A[+\-]\z/ or _croak("Parameter to Inf[`s] expected to be a plus or minus sign; got $sign");
+        Types::Standard::Object->check($val) && $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) ||
+        Data::Float::float_is_infinite($val);
+    },
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $self->parent->inline_check($val).' && ('.
+        '   '.Types::Standard::Object->inline_check($val)." && $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) ||".
+        '   '."Data::Float::float_is_infinite($val)".
+        ')';
+    },
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my $sign = shift;
+        $sign =~ /\A[+\-]\z/ or _croak("Parameter to Inf[`s] expected to be a plus or minus sign; got $sign");
 
-      Type::Tiny->new(
-         display_name => "Inf[$sign]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => sub {
-            my $val = $_;
+        Type::Tiny->new(
+            display_name => "Inf[$sign]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => sub {
+                my $val = $_;
 
-            Types::Standard::Object->check($val) && $val->can('is_inf') && $val->is_inf($sign) ||
-            Data::Float::float_is_infinite($val) && Data::Float::float_sign($val) eq $sign;
-         },
-         inlined    => sub {
-            my ($self, $val) = @_;
+                Types::Standard::Object->check($val) && $val->can('is_inf') && $val->is_inf($sign) ||
+                Data::Float::float_is_infinite($val) && Data::Float::float_sign($val) eq $sign;
+            },
+            inlined    => sub {
+                my ($self, $val) = @_;
 
-            $self->parent->inline_check($val).' && ( '.
-               Types::Standard::Object->inline_check($val)." && $val->can('is_inf') && $val->is_inf('$sign') || ".
-               "Data::Float::float_is_infinite($val) && Data::Float::float_sign($val) eq '$sign' ".
-            ')';
-         },
-      );
-   },
+                $self->parent->inline_check($val).' && ( '.
+                   Types::Standard::Object->inline_check($val)." && $val->can('is_inf') && $val->is_inf('$sign') || ".
+                   "Data::Float::float_is_infinite($val) && Data::Float::float_sign($val) eq '$sign' ".
+                ')';
+            },
+        );
+    },
 );
 
 # this is used a lot for floats, but we need to optimize out all of the NumLike checks
 my $_NaNInf = Type::Tiny::Union->new(
-   type_constraints => [ $_NaN, $_Inf ],
+    type_constraints => [ $_NaN, $_Inf ],
 )->create_child_type(
-   name       => 'NaNInf',
-   constraint => sub {
-      # looks_like_number($_) &&
-      Types::Standard::Object->check($_) && (
-         $_->can('is_nan') && $_->is_nan ||
-         $_->can('is_inf') && ($_->is_inf('+') || $_->is_inf('-'))
-      ) || Data::Float::float_is_nan($_) || Data::Float::float_is_infinite($_)
-   },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      # looks_like_number($val) &&
-      Types::Standard::Object->inline_check($val)." && ( ".
-         "$val->can('is_nan') && $val->is_nan || ".
-         "$val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) ".
-      ") || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)";
-   },
+    name       => 'NaNInf',
+    constraint => sub {
+        # looks_like_number($_) &&
+        Types::Standard::Object->check($_) && (
+            $_->can('is_nan') && $_->is_nan ||
+            $_->can('is_inf') && ($_->is_inf('+') || $_->is_inf('-'))
+        ) || Data::Float::float_is_nan($_) || Data::Float::float_is_infinite($_)
+    },
+    inlined    => sub {
+        my ($self, $val) = @_;
+        # looks_like_number($val) &&
+        Types::Standard::Object->inline_check($val)." && ( ".
+            "$val->can('is_nan') && $val->is_nan || ".
+            "$val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) ".
+        ") || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)";
+    },
 );
 
 my $_not_NaNInf = $_NaNInf->complementary_type;
@@ -353,10 +353,10 @@ accepts blessed numbers as well.
 =cut
 
 my $_RealNum = $meta->add_type( Type::Tiny::Intersection->new(
-   name       => 'RealNum',
-   display_name => 'RealNum',
-   library    => __PACKAGE__,
-   type_constraints => [ $_NumLike, $_not_NaNInf ],
+    name       => 'RealNum',
+    display_name => 'RealNum',
+    library    => __PACKAGE__,
+    type_constraints => [ $_NumLike, $_not_NaNInf ],
 ) );
 
 #############################################################################
@@ -368,22 +368,22 @@ my $_RealNum = $meta->add_type( Type::Tiny::Intersection->new(
 
 # Helper subs
 sub __integer_bits_vars {
-   my ($bits, $is_unsigned) = @_;
+    my ($bits, $is_unsigned) = @_;
 
-   my $sbits = $bits - 1;
+    my $sbits = $bits - 1;
 
-   my ($neg, $spos, $upos) = (
-      $bigtwo->copy->bpow($sbits)->bmul(-1),
-      $bigtwo->copy->bpow($sbits)->bsub(1),
-      $bigtwo->copy->bpow( $bits)->bsub(1),
-   );
-   my $sdigits = ceil( $sbits * _BASE2_LOG );
-   my $udigits = ceil(  $bits * _BASE2_LOG );
+    my ($neg, $spos, $upos) = (
+        $bigtwo->copy->bpow($sbits)->bmul(-1),
+        $bigtwo->copy->bpow($sbits)->bsub(1),
+        $bigtwo->copy->bpow( $bits)->bsub(1),
+    );
+    my $sdigits = ceil( $sbits * _BASE2_LOG );
+    my $udigits = ceil(  $bits * _BASE2_LOG );
 
-   return $is_unsigned ?
-      (0,    $upos, $udigits) :
-      ($neg, $spos, $sdigits)
-   ;
+    return $is_unsigned ?
+        (0,    $upos, $udigits) :
+        ($neg, $spos, $sdigits)
+    ;
 }
 
 =head3 IntLike
@@ -397,14 +397,14 @@ that.)
 ### XXX: This string equality check is necessary because Math::BigInt seems to think 1.5 == 1.
 ### However, this is problematic with long doubles that stringify into E notation.
 my $_IntLike = $meta->add_type(
-   name       => 'IntLike',
-   parent     => $_NumLike,
-   library    => __PACKAGE__,
-   constraint => sub { /\d+/ && int($_) == $_ && (int($_) eq $_ || !ref($_)) },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val)." && $val =~ /\\d+/ && int($val) == $val && (int($val) eq $val || !ref($val))";
-   },
+    name       => 'IntLike',
+    parent     => $_NumLike,
+    library    => __PACKAGE__,
+    constraint => sub { /\d+/ && int($_) == $_ && (int($_) eq $_ || !ref($_)) },
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $self->parent->inline_check($val)." && $val =~ /\\d+/ && int($val) == $val && (int($val) eq $val || !ref($val))";
+    },
 );
 
 =head3 PerlSafeInt
@@ -436,15 +436,15 @@ check for stringified E notation.
 =cut
 
 my $_PerlSafeInt = $meta->add_type( Type::Tiny::Intersection->new(
-   library    => __PACKAGE__,
-   type_constraints => [ $_PerlNum, $_IntLike, $_NumRange_perlsafe ],
+    library    => __PACKAGE__,
+    type_constraints => [ $_PerlNum, $_IntLike, $_NumRange_perlsafe ],
 )->create_child_type(
-   name       => 'PerlSafeInt',
-   library    => __PACKAGE__,
-   inlined    => sub {
-      my $val = $_[1];
-      "defined $val && !ref($val) && $val =~ /\\d+/ && int($val) == $val && ".$_NumRange_perlsafe->inline_check($val);
-   },
+    name       => 'PerlSafeInt',
+    library    => __PACKAGE__,
+    inlined    => sub {
+        my $val = $_[1];
+        "defined $val && !ref($val) && $val =~ /\\d+/ && int($val) == $val && ".$_NumRange_perlsafe->inline_check($val);
+    },
 ) );
 
 =head3 BlessedInt
@@ -460,44 +460,44 @@ container must also have digit accuracy to support this number.  (See L</Blessed
 =cut
 
 my $_BlessedInt = $meta->add_type( Type::Tiny::Intersection->new(
-   library    => __PACKAGE__,
-   type_constraints => [ $_BlessedNum, $_IntLike ],
+    library    => __PACKAGE__,
+    type_constraints => [ $_BlessedNum, $_IntLike ],
 )->create_child_type(
-   name       => 'BlessedInt',
-   library    => __PACKAGE__,
-   inlined    => sub {
-      my $val = $_[1];
-      Types::Standard::Object->inline_check($val)." && $val =~ /\\d+/ && int($val) == $val && int($val) eq $val";
-   },
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my $digits = shift;
-      $digits =~ /\A[0-9]+\z/ or _croak("Parameter to BlessedInt[`d] expected to be a positive integer; got $digits");
+    name       => 'BlessedInt',
+    library    => __PACKAGE__,
+    inlined    => sub {
+        my $val = $_[1];
+        Types::Standard::Object->inline_check($val)." && $val =~ /\\d+/ && int($val) == $val && int($val) eq $val";
+    },
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my $digits = shift;
+        $digits =~ /\A[0-9]+\z/ or _croak("Parameter to BlessedInt[`d] expected to be a positive integer; got $digits");
 
-      my $_BlessedNum_param = $_BlessedNum->parameterize($digits);
+        my $_BlessedNum_param = $_BlessedNum->parameterize($digits);
 
-      Type::Tiny->new(
-         display_name => "BlessedInt[$digits]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => sub {
-            $_IntLike->check($_) && $_BlessedNum_param->check($_) && do {
-               my $num = $_;
-               $num =~ s/\D+//g;
-               length($num) <= $digits
-            }
-         },
-         inlined    => sub {
-            my $val = $_[1];
-            $_BlessedNum_param->inline_check($val).' && '.
-            "$val =~ /\\d+/ && int($val) == $val && int($val) eq $val && do { ".
-               'my $num = '.$val.'; '.
-               '$num =~ s/\D+//g; '.
-               'length($num) <= '.$digits.' '.
-            '}';
-         },
-      );
-   },
+        Type::Tiny->new(
+            display_name => "BlessedInt[$digits]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => sub {
+                $_IntLike->check($_) && $_BlessedNum_param->check($_) && do {
+                    my $num = $_;
+                    $num =~ s/\D+//g;
+                    length($num) <= $digits
+                }
+            },
+            inlined    => sub {
+                my $val = $_[1];
+                $_BlessedNum_param->inline_check($val).' && '.
+                "$val =~ /\\d+/ && int($val) == $val && int($val) eq $val && do { ".
+                    'my $num = '.$val.'; '.
+                    '$num =~ s/\D+//g; '.
+                    'length($num) <= '.$digits.' '.
+                '}';
+            },
+        );
+    },
 ) );
 
 =head3 SignedInt
@@ -514,41 +514,40 @@ C<2147483647>.
 =cut
 
 $meta->add_type( Type::Tiny::Union->new(
-   #parent     => $_IntLike,
-   library    => __PACKAGE__,
-   type_constraints => [ $_PerlSafeInt, $_BlessedInt ],
+    #parent     => $_IntLike,
+    library    => __PACKAGE__,
+    type_constraints => [ $_PerlSafeInt, $_BlessedInt ],
 )->create_child_type(
-   name       => 'SignedInt',
-   library    => __PACKAGE__,
-   inlined    => sub {
-      my $val = $_[1];
-      $_IntLike->inline_check($val).' && ('.
-         $_NumRange_perlsafe->inline_check($val).' || '.Types::Standard::Object->inline_check($val).
-      ')';
-   },
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my $bits = shift;
-      $bits =~ /\A[0-9]+\z/ or _croak("Parameter to SignedInt[`b] expected to be a positive integer; got $bits");
+    name       => 'SignedInt',
+    library    => __PACKAGE__,
+    inlined    => sub {
+        my $val = $_[1];
+        $_IntLike->inline_check($val).' && ('.
+            $_NumRange_perlsafe->inline_check($val).' || '.Types::Standard::Object->inline_check($val).
+        ')';
+    },
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my $bits = shift;
+        $bits =~ /\A[0-9]+\z/ or _croak("Parameter to SignedInt[`b] expected to be a positive integer; got $bits");
 
-      my ($min, $max, $digits) = __integer_bits_vars($bits, 0);
-      my $_BlessedInt_param = $_BlessedInt->parameterize($digits);
-      my $_NumRange_param   = $_NumRange  ->parameterize($min, $max);
+        my ($min, $max, $digits) = __integer_bits_vars($bits, 0);
+        my $_BlessedInt_param = $_BlessedInt->parameterize($digits);
+        my $_NumRange_param   = $_NumRange  ->parameterize($min, $max);
 
-      Type::Tiny::Intersection->new(
-         library    => __PACKAGE__,
-         type_constraints => [ $self, ($_PerlSafeInt|$_BlessedInt_param), $_NumRange_param ],
-      )->create_child_type(
-         display_name => "SignedInt[$bits]",
-         inlined    => sub {
-            my $val = $_[1];
-            '('.$_PerlSafeInt->inline_check($val).' || '.$_BlessedInt_param->inline_check($val).') && '.
-            $_NumRange_param->inline_check($val);
-         },
-      );
-   },
+        Type::Tiny::Intersection->new(
+            library    => __PACKAGE__,
+            type_constraints => [ $self, ($_PerlSafeInt|$_BlessedInt_param), $_NumRange_param ],
+        )->create_child_type(
+            display_name => "SignedInt[$bits]",
+            inlined    => sub {
+                my $val = $_[1];
+                '('.$_PerlSafeInt->inline_check($val).' || '.$_BlessedInt_param->inline_check($val).') && '.
+                $_NumRange_param->inline_check($val);
+            },
+        );
+    },
 ) );
-
 
 =head3 UnsignedInt
 
@@ -562,46 +561,46 @@ so the maximum is twice as high.
 =cut
 
 $meta->add_type(
-   name       => 'UnsignedInt',
-   parent     => $_IntLike,
-   library    => __PACKAGE__,
-   constraint => sub { $_IntLike->check($_) && $_ >= 0 && ($_PerlSafeInt->check($_) || $_BlessedNum->check($_)) },
-   inlined    => sub {
-      my $val = $_[1];
-      $_IntLike->inline_check($val)." && $val >= 0 && (".
-         $_NumRange_perlsafe->inline_check($val).' || '.Types::Standard::Object->inline_check($val).
-      ')';
-   },
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my $bits = shift;
-      $bits =~ /\A[0-9]+\z/ or _croak("Parameter to UnsignedInt[`b] expected to be a positive integer; got $bits");
+    name       => 'UnsignedInt',
+    parent     => $_IntLike,
+    library    => __PACKAGE__,
+    constraint => sub { $_IntLike->check($_) && $_ >= 0 && ($_PerlSafeInt->check($_) || $_BlessedNum->check($_)) },
+    inlined    => sub {
+        my $val = $_[1];
+        $_IntLike->inline_check($val)." && $val >= 0 && (".
+            $_NumRange_perlsafe->inline_check($val).' || '.Types::Standard::Object->inline_check($val).
+        ')';
+    },
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my $bits = shift;
+        $bits =~ /\A[0-9]+\z/ or _croak("Parameter to UnsignedInt[`b] expected to be a positive integer; got $bits");
 
-      my ($min, $max, $digits) = __integer_bits_vars($bits, 1);
-      my $_BlessedNum_param = $_BlessedNum->parameterize($digits);  # IntLike check extracted out
-      my $_NumRange_param   = $_NumRange  ->parameterize($min, $max);
+        my ($min, $max, $digits) = __integer_bits_vars($bits, 1);
+        my $_BlessedNum_param = $_BlessedNum->parameterize($digits);  # IntLike check extracted out
+        my $_NumRange_param   = $_NumRange  ->parameterize($min, $max);
 
-      # inline will already have the IntLike check, and maybe not need the extra NumRange check
-      my $perlsafe_inline = $min >= $SAFE_NUM_MIN && $max <= $SAFE_NUM_MAX ?
-         sub { Types::Standard::Str->inline_check($_[0]) } :
-         sub { '('.Types::Standard::Str->inline_check($_[0]).' && '.$_NumRange_perlsafe->inline_check($_[0]).')' }
-      ;
+        # inline will already have the IntLike check, and maybe not need the extra NumRange check
+        my $perlsafe_inline = $min >= $SAFE_NUM_MIN && $max <= $SAFE_NUM_MAX ?
+            sub { Types::Standard::Str->inline_check($_[0]) } :
+            sub { '('.Types::Standard::Str->inline_check($_[0]).' && '.$_NumRange_perlsafe->inline_check($_[0]).')' }
+        ;
 
-      Type::Tiny->new(
-         display_name => "UnsignedInt[$bits]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => sub {
-            $_IntLike->check($_) && $_NumRange_param->check($_) &&
-            ($_PerlSafeInt->check($_) || $_BlessedNum_param->check($_));
-         },
-         inlined    => sub {
-            my $val = $_[1];
-            $_IntLike->inline_check($val).' && '.$_NumRange_param->inline_check($val).' && '.
-            '('.$perlsafe_inline->($val).' || '.$_BlessedNum_param->inline_check($val).')';
-         },
-      );
-   },
+        Type::Tiny->new(
+            display_name => "UnsignedInt[$bits]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => sub {
+                $_IntLike->check($_) && $_NumRange_param->check($_) &&
+                ($_PerlSafeInt->check($_) || $_BlessedNum_param->check($_));
+            },
+            inlined    => sub {
+                my $val = $_[1];
+                $_IntLike->inline_check($val).' && '.$_NumRange_param->inline_check($val).' && '.
+                '('.$perlsafe_inline->($val).' || '.$_BlessedNum_param->inline_check($val).')';
+            },
+        );
+    },
 );
 
 #############################################################################
@@ -620,16 +619,16 @@ fractional part is partly or completely lost.
 =cut
 
 my $_PerlSafeFloat = $meta->add_type(
-   name       => 'PerlSafeFloat',
-   parent     => $_PerlNum,
-   library    => __PACKAGE__,
-   constraint => sub { $_NumRange_perlsafe->check($_) || Data::Float::float_is_nan($_) || Data::Float::float_is_infinite($_) },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val).' && ('.
-         $_NumRange_perlsafe->inline_check($val)." || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)".
-      ')';
-   },
+    name       => 'PerlSafeFloat',
+    parent     => $_PerlNum,
+    library    => __PACKAGE__,
+    constraint => sub { $_NumRange_perlsafe->check($_) || Data::Float::float_is_nan($_) || Data::Float::float_is_infinite($_) },
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $self->parent->inline_check($val).' && ('.
+            $_NumRange_perlsafe->inline_check($val)." || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)".
+        ')';
+    },
 );
 
 =head3 BlessedFloat
@@ -648,32 +647,32 @@ checks.
 =cut
 
 my $_BlessedFloat = $meta->add_type(
-   name       => 'BlessedFloat',
-   parent     => $_BlessedNum,
-   library    => __PACKAGE__,
-   constraint => sub { blessed($_)->new(1.2) == 1.2 },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val)." && Scalar::Util::blessed($val)\->new(1.2) == 1.2";
-   },
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my $digits = shift;
-      $digits =~ /\A[0-9]+\z/ or _croak("Parameter to BlessedFloat[`d] expected to be a positive integer; got $digits");
+    name       => 'BlessedFloat',
+    parent     => $_BlessedNum,
+    library    => __PACKAGE__,
+    constraint => sub { blessed($_)->new(1.2) == 1.2 },
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $self->parent->inline_check($val)." && Scalar::Util::blessed($val)\->new(1.2) == 1.2";
+    },
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my $digits = shift;
+        $digits =~ /\A[0-9]+\z/ or _croak("Parameter to BlessedFloat[`d] expected to be a positive integer; got $digits");
 
-      my $_BlessedNum_param = $_BlessedNum->parameterize($digits);
+        my $_BlessedNum_param = $_BlessedNum->parameterize($digits);
 
-      Type::Tiny->new(
-         display_name => "BlessedFloat[$digits]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => sub { $_BlessedNum_param->check($_) && blessed($_)->new(1.2) == 1.2 },
-         inlined    => sub {
-            my ($self, $val) = @_;
-            $_BlessedNum_param->inline_check($val)." && Scalar::Util::blessed($val)\->new(1.2) == 1.2";
-         },
-      );
-   },
+        Type::Tiny->new(
+            display_name => "BlessedFloat[$digits]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => sub { $_BlessedNum_param->check($_) && blessed($_)->new(1.2) == 1.2 },
+            inlined    => sub {
+                my ($self, $val) = @_;
+                $_BlessedNum_param->inline_check($val)." && Scalar::Util::blessed($val)\->new(1.2) == 1.2";
+            },
+        );
+    },
 );
 
 =head3 FloatSafeNum
@@ -684,20 +683,20 @@ some basic checks to make sure information is retained.
 =cut
 
 my $_FloatSafeNum = $meta->add_type( Type::Tiny::Union->new(
-   library    => __PACKAGE__,
-   type_constraints => [ $_PerlSafeFloat, $_BlessedFloat ],
+    library    => __PACKAGE__,
+    type_constraints => [ $_PerlSafeFloat, $_BlessedFloat ],
 )->create_child_type(
-   name       => 'FloatSafeNum',
-   library    => __PACKAGE__,
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val).' && ('.
-         "!ref($val) && (".
-            $_NumRange_perlsafe->inline_check($val)." || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)".
-         ') || '.
-         Types::Standard::Object->inline_check($val)." && Scalar::Util::blessed($val)->new(1.2) == 1.2".
-      ')';
-   },
+    name       => 'FloatSafeNum',
+    library    => __PACKAGE__,
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $self->parent->inline_check($val).' && ('.
+            "!ref($val) && (".
+                $_NumRange_perlsafe->inline_check($val)." || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)".
+            ') || '.
+            Types::Standard::Object->inline_check($val)." && Scalar::Util::blessed($val)->new(1.2) == 1.2".
+        ')';
+    },
 ) );
 
 =head3 FloatBinary[`b, `e]
@@ -729,84 +728,84 @@ example, assuming a 32-bit machine:
 ### to throw into a typical type
 
 sub __real_constraint_generator {
-   my ($is_perl_safe, $digits, $_NumRange_param, $no_naninf) = @_;
-   my $_BlessedFloat_param = $_BlessedFloat->parameterize($digits);
+    my ($is_perl_safe, $digits, $_NumRange_param, $no_naninf) = @_;
+    my $_BlessedFloat_param = $_BlessedFloat->parameterize($digits);
 
-   if ($no_naninf) {
-      return $is_perl_safe ?
-         sub { ( $_PerlNum->check($_) || $_BlessedFloat_param->check($_) ) && $_NumRange_param->check($_) } :
-         sub { $_BlessedFloat_param->check($_) && $_NumRange_param->check($_) }
-      ;
-   }
-   else {
-      return $is_perl_safe ?
-         sub { ( $_PerlNum->check($_) || $_BlessedFloat_param->check($_) ) && $_NumRange_param->check($_) || $_NaNInf->check($_) } :
-         sub { $_BlessedFloat_param->check($_) && ( $_NumRange_param->check($_) || $_NaNInf->check($_) ); }
-      ;
-   }
+    if ($no_naninf) {
+        return $is_perl_safe ?
+           sub { ( $_PerlNum->check($_) || $_BlessedFloat_param->check($_) ) && $_NumRange_param->check($_) } :
+           sub { $_BlessedFloat_param->check($_) && $_NumRange_param->check($_) }
+        ;
+    }
+    else {
+        return $is_perl_safe ?
+           sub { ( $_PerlNum->check($_) || $_BlessedFloat_param->check($_) ) && $_NumRange_param->check($_) || $_NaNInf->check($_) } :
+           sub { $_BlessedFloat_param->check($_) && ( $_NumRange_param->check($_) || $_NaNInf->check($_) ); }
+        ;
+    }
 }
 
 sub __real_inline_generator {
-   my ($is_perl_safe, $digits, $_NumRange_param, $no_naninf) = @_;
-   my $_BlessedFloat_param = $_BlessedFloat->parameterize($digits);
+    my ($is_perl_safe, $digits, $_NumRange_param, $no_naninf) = @_;
+    my $_BlessedFloat_param = $_BlessedFloat->parameterize($digits);
 
-   if ($no_naninf) {
-      return $is_perl_safe ?
-         sub {
-            '( '.$_PerlNum->inline_check($_[1]).' || '.$_BlessedFloat_param->inline_check($_[1]).' )'.
-            ' && '.$_NumRange_param->inline_check($_[1])
-         } :
-         sub { $_BlessedFloat_param->inline_check($_[1]).' && '.$_NumRange_param->inline_check($_[1]) }
-      ;
-   }
-   else {
-      return $is_perl_safe ?
-         sub {
-            '( '.$_PerlNum->inline_check($_[1]).' || '.$_BlessedFloat_param->inline_check($_[1]).' )'.
-            ' && ( '.$_NumRange_param->inline_check($_[1]).' || '.$_NaNInf->inline_check($_[1]).' )'
-         } :
-         sub { $_BlessedFloat_param->inline_check($_[1]).' && ('.$_NumRange_param->inline_check($_[1]).' || '.$_NaNInf->inline_check($_[1]).')' }
-      ;
-   }
+    if ($no_naninf) {
+        return $is_perl_safe ?
+            sub {
+                '( '.$_PerlNum->inline_check($_[1]).' || '.$_BlessedFloat_param->inline_check($_[1]).' )'.
+                ' && '.$_NumRange_param->inline_check($_[1])
+            } :
+            sub { $_BlessedFloat_param->inline_check($_[1]).' && '.$_NumRange_param->inline_check($_[1]) }
+        ;
+    }
+    else {
+        return $is_perl_safe ?
+            sub {
+                '( '.$_PerlNum->inline_check($_[1]).' || '.$_BlessedFloat_param->inline_check($_[1]).' )'.
+                ' && ( '.$_NumRange_param->inline_check($_[1]).' || '.$_NaNInf->inline_check($_[1]).' )'
+            } :
+            sub { $_BlessedFloat_param->inline_check($_[1]).' && ('.$_NumRange_param->inline_check($_[1]).' || '.$_NaNInf->inline_check($_[1]).')' }
+        ;
+    }
 }
 
 $meta->add_type(
-   name       => 'FloatBinary',
-   parent     => $_FloatSafeNum,
-   library    => __PACKAGE__,
-   # kinda pointless without the parameters
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my ($bits, $ebits) = (shift, shift);
-      $bits  =~ /\A[0-9]+\z/ or _croak( "First parameter to FloatBinary[`b, `e] expected to be a positive integer; got $bits");
-      $ebits =~ /\A[0-9]+\z/ or _croak("Second parameter to FloatBinary[`b, `e] expected to be a positive integer; got $ebits");
+    name       => 'FloatBinary',
+    parent     => $_FloatSafeNum,
+    library    => __PACKAGE__,
+    # kinda pointless without the parameters
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my ($bits, $ebits) = (shift, shift);
+        $bits  =~ /\A[0-9]+\z/ or _croak( "First parameter to FloatBinary[`b, `e] expected to be a positive integer; got $bits");
+        $ebits =~ /\A[0-9]+\z/ or _croak("Second parameter to FloatBinary[`b, `e] expected to be a positive integer; got $ebits");
 
-      my $sbits = $bits - 1 - $ebits;  # remove sign bit and exponent bits = significand precision
+        my $sbits = $bits - 1 - $ebits;  # remove sign bit and exponent bits = significand precision
 
-      # MAX = (2 - 2**(-$sbits-1)) * 2**($ebits-1)
-      my $emax = $bigtwo->copy->bpow($ebits-1)->bsub(1);             # Y = (2**($ebits-1)-1)
-      my $smin = $bigtwo->copy->bpow(-$sbits-1)->bmul(-1)->badd(2);  # Z = (2 - X) = -X + 2  (where X = 2**(-$sbits-1) )
-      my $max  = $bigtwo->copy->bpow($emax)->bmul($smin);            # MAX = 2**Y * Z
+        # MAX = (2 - 2**(-$sbits-1)) * 2**($ebits-1)
+        my $emax = $bigtwo->copy->bpow($ebits-1)->bsub(1);             # Y = (2**($ebits-1)-1)
+        my $smin = $bigtwo->copy->bpow(-$sbits-1)->bmul(-1)->badd(2);  # Z = (2 - X) = -X + 2  (where X = 2**(-$sbits-1) )
+        my $max  = $bigtwo->copy->bpow($emax)->bmul($smin);            # MAX = 2**Y * Z
 
-      my $digits = ceil( $sbits * _BASE2_LOG );
+        my $digits = ceil( $sbits * _BASE2_LOG );
 
-      my $is_perl_safe = (
-         Data::Float::significand_bits >= $sbits &&
-         Data::Float::max_finite_exp   >= 2 ** $ebits - 1 &&
-         Data::Float::have_infinite &&
-         Data::Float::have_nan
-      );
+        my $is_perl_safe = (
+            Data::Float::significand_bits >= $sbits &&
+            Data::Float::max_finite_exp   >= 2 ** $ebits - 1 &&
+            Data::Float::have_infinite &&
+            Data::Float::have_nan
+        );
 
-      my $_NumRange_param = $_NumRange->parameterize(-$max, $max);
+        my $_NumRange_param = $_NumRange->parameterize(-$max, $max);
 
-      Type::Tiny->new(
-         display_name => "FloatBinary[$bits, $ebits]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param),
-         inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param),
-      );
-   },
+        Type::Tiny->new(
+            display_name => "FloatBinary[$bits, $ebits]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param),
+            inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param),
+        );
+    },
 );
 
 =head3 FloatDecimal[`d, `e]
@@ -818,41 +817,41 @@ L</FloatBinary[`b, `e]>.)
 =cut
 
 $meta->add_type(
-   name       => 'FloatDecimal',
-   parent     => $_FloatSafeNum,
-   library    => __PACKAGE__,
-   # kinda pointless without the parameters
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my ($digits, $emax) = (shift, shift);
-      $digits =~ /\A[0-9]+\z/ or _croak( "First parameter to FloatDecimal[`d, `e] expected to be a positive integer; got $digits");
-      $emax   =~ /\A[0-9]+\z/ or _croak("Second parameter to FloatDecimal[`d, `e] expected to be a positive integer; got $emax");
+    name       => 'FloatDecimal',
+    parent     => $_FloatSafeNum,
+    library    => __PACKAGE__,
+    # kinda pointless without the parameters
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my ($digits, $emax) = (shift, shift);
+        $digits =~ /\A[0-9]+\z/ or _croak( "First parameter to FloatDecimal[`d, `e] expected to be a positive integer; got $digits");
+        $emax   =~ /\A[0-9]+\z/ or _croak("Second parameter to FloatDecimal[`d, `e] expected to be a positive integer; got $emax");
 
-      # We're not going to worry about the (extreme) edge case that
-      # Perl might be compiled with decimal float NVs, but we still
-      # need to convert to base-2.
-      my $sbits = ceil( $digits / _BASE2_LOG );
-      my $emax2 = ceil( $emax   / _BASE2_LOG );
+        # We're not going to worry about the (extreme) edge case that
+        # Perl might be compiled with decimal float NVs, but we still
+        # need to convert to base-2.
+        my $sbits = ceil( $digits / _BASE2_LOG );
+        my $emax2 = ceil( $emax   / _BASE2_LOG );
 
-      my $max = $bigten->copy->bpow($emax)->bmul( '9.'.('9' x ($digits-1)) );
+        my $max = $bigten->copy->bpow($emax)->bmul( '9.'.('9' x ($digits-1)) );
 
-      my $is_perl_safe = (
-         Data::Float::significand_bits >= $sbits &&
-         Data::Float::max_finite_exp   >= $emax2 &&
-         Data::Float::have_infinite &&
-         Data::Float::have_nan
-      );
+        my $is_perl_safe = (
+            Data::Float::significand_bits >= $sbits &&
+            Data::Float::max_finite_exp   >= $emax2 &&
+            Data::Float::have_infinite &&
+            Data::Float::have_nan
+        );
 
-      my $_NumRange_param = $_NumRange->parameterize(-$max, $max);
+        my $_NumRange_param = $_NumRange->parameterize(-$max, $max);
 
-      Type::Tiny->new(
-         display_name => "FloatDecimal[$digits, $emax]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param),
-         inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param),
-      );
-   },
+        Type::Tiny->new(
+            display_name => "FloatDecimal[$digits, $emax]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param),
+            inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param),
+        );
+    },
 );
 
 =head2 Fixed-point numbers
@@ -864,22 +863,22 @@ Like L</FloatSafeNum>, but rejects any NaN/Inf.
 =cut
 
 my $_RealSafeNum = $meta->add_type( Type::Tiny::Intersection->new(
-   library    => __PACKAGE__,
-   type_constraints => [ $_RealNum, $_FloatSafeNum ],
+    library    => __PACKAGE__,
+    type_constraints => [ $_RealNum, $_FloatSafeNum ],
 )->create_child_type(
-   name       => 'RealSafeNum',
-   library    => __PACKAGE__,
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $_NumLike->inline_check($val).' && ('.
-         "( !ref($val) && ".$_NumRange_perlsafe->inline_check($val)." && not (".
-            "Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val))".
-         ') || ('.
-            Types::Standard::Object->inline_check($val)." && Scalar::Util::blessed($val)->new(1.2) == 1.2 && ".
-            "not ($val->can('is_nan') && $val->is_nan || $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) )".
-         ')'.
-      ')';
-   },
+    name       => 'RealSafeNum',
+    library    => __PACKAGE__,
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $_NumLike->inline_check($val).' && ('.
+            "( !ref($val) && ".$_NumRange_perlsafe->inline_check($val)." && not (".
+                "Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val))".
+            ') || ('.
+                Types::Standard::Object->inline_check($val)." && Scalar::Util::blessed($val)->new(1.2) == 1.2 && ".
+                "not ($val->can('is_nan') && $val->is_nan || $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) )".
+            ')'.
+        ')';
+    },
 ) );
 
 =head3 FixedBinary[`b, `s]
@@ -893,46 +892,46 @@ Otherwise, it has the same properties and caveats as the parameterized C<Float*>
 =cut
 
 $meta->add_type(
-   name       => 'FixedBinary',
-   parent     => $_RealSafeNum,
-   library    => __PACKAGE__,
-   # kinda pointless without the parameters
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my ($bits, $scale) = (shift, shift);
-      $bits  =~ /\A[0-9]+\z/ or _croak( "First parameter to FixedBinary[`b, `s] expected to be a positive integer; got $bits");
-      $scale =~ /\A[0-9]+\z/ or _croak("Second parameter to FixedBinary[`b, `s] expected to be a positive integer; got $scale");
+    name       => 'FixedBinary',
+    parent     => $_RealSafeNum,
+    library    => __PACKAGE__,
+    # kinda pointless without the parameters
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my ($bits, $scale) = (shift, shift);
+        $bits  =~ /\A[0-9]+\z/ or _croak( "First parameter to FixedBinary[`b, `s] expected to be a positive integer; got $bits");
+        $scale =~ /\A[0-9]+\z/ or _croak("Second parameter to FixedBinary[`b, `s] expected to be a positive integer; got $scale");
 
-      my $sbits = $bits - 1;
+        my $sbits = $bits - 1;
 
-      # So, we have a base-10 scale and a base-2 set of $bits.  Lovely.
-      # We can't actually figure out if it's Perl safe until we find the
-      # $max, adjust with the $scale, and then go BACK to base-2 limits.
-      my $div = $bigten->copy->bpow($scale);
-      my ($neg, $pos) = (
-         # bdiv returns (quo,rem) in list context :/
-         scalar $bigtwo->copy->bpow($sbits)->bmul(-1)->bdiv($div),
-         scalar $bigtwo->copy->bpow($sbits)->bsub(1)->bdiv($div),
-      );
+        # So, we have a base-10 scale and a base-2 set of $bits.  Lovely.
+        # We can't actually figure out if it's Perl safe until we find the
+        # $max, adjust with the $scale, and then go BACK to base-2 limits.
+        my $div = $bigten->copy->bpow($scale);
+        my ($neg, $pos) = (
+            # bdiv returns (quo,rem) in list context :/
+            scalar $bigtwo->copy->bpow($sbits)->bmul(-1)->bdiv($div),
+            scalar $bigtwo->copy->bpow($sbits)->bsub(1)->bdiv($div),
+        );
 
-      my $digits = ceil( $sbits * _BASE2_LOG );
-      my $emin2  = ceil( $scale / _BASE2_LOG );
+        my $digits = ceil( $sbits * _BASE2_LOG );
+        my $emin2  = ceil( $scale / _BASE2_LOG );
 
-      my $is_perl_safe = (
-         Data::Float::significand_bits >= $sbits &&
-         Data::Float::min_finite_exp   <= -$emin2
-      );
+        my $is_perl_safe = (
+            Data::Float::significand_bits >= $sbits &&
+            Data::Float::min_finite_exp   <= -$emin2
+        );
 
-      my $_NumRange_param = $_NumRange->parameterize($neg, $pos);
+        my $_NumRange_param = $_NumRange->parameterize($neg, $pos);
 
-      Type::Tiny->new(
-         display_name => "FixedBinary[$bits, $scale]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param, 1),
-         inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param, 1),
-      );
-   },
+        Type::Tiny->new(
+            display_name => "FixedBinary[$bits, $scale]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param, 1),
+            inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param, 1),
+        );
+    },
 );
 
 =head3 FixedDecimal[`d, `s]
@@ -943,37 +942,37 @@ figures) and decimal precision, respectively.
 =cut
 
 $meta->add_type(
-   name       => 'FixedDecimal',
-   parent     => $_RealSafeNum,
-   library    => __PACKAGE__,
-   # kinda pointless without the parameters
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my ($digits, $scale) = (shift, shift);
-      $digits =~ /\A[0-9]+\z/ or _croak( "First parameter to FixedDecimal[`d, `s] expected to be a positive integer; got $digits");
-      $scale  =~ /\A[0-9]+\z/ or _croak("Second parameter to FixedDecimal[`d, `s] expected to be a positive integer; got $scale");
+    name       => 'FixedDecimal',
+    parent     => $_RealSafeNum,
+    library    => __PACKAGE__,
+    # kinda pointless without the parameters
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my ($digits, $scale) = (shift, shift);
+        $digits =~ /\A[0-9]+\z/ or _croak( "First parameter to FixedDecimal[`d, `s] expected to be a positive integer; got $digits");
+        $scale  =~ /\A[0-9]+\z/ or _croak("Second parameter to FixedDecimal[`d, `s] expected to be a positive integer; got $scale");
 
-      my $sbits = ceil( $digits / _BASE2_LOG );
-      my $emin2 = ceil( $scale  / _BASE2_LOG );
+        my $sbits = ceil( $digits / _BASE2_LOG );
+        my $emin2 = ceil( $scale  / _BASE2_LOG );
 
-      my $is_perl_safe = (
-         Data::Float::significand_bits >= $sbits &&
-         Data::Float::min_finite_exp   <= -$emin2
-      );
+        my $is_perl_safe = (
+            Data::Float::significand_bits >= $sbits &&
+            Data::Float::min_finite_exp   <= -$emin2
+        );
 
-      my $div = $bigten->copy->bpow($scale);
-      my $max = $bigten->copy->bpow($digits)->bsub(1)->bdiv($div);
+        my $div = $bigten->copy->bpow($scale);
+        my $max = $bigten->copy->bpow($digits)->bsub(1)->bdiv($div);
 
-      my $_NumRange_param = $_NumRange->parameterize(-$max, $max);
+        my $_NumRange_param = $_NumRange->parameterize(-$max, $max);
 
-      Type::Tiny->new(
-         display_name => "FixedDecimal[$digits, $scale]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param, 1),
-         inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param, 1),
-      );
-   },
+        Type::Tiny->new(
+            display_name => "FixedDecimal[$digits, $scale]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => __real_constraint_generator($is_perl_safe, $digits, $_NumRange_param, 1),
+            inlined    => __real_inline_generator    ($is_perl_safe, $digits, $_NumRange_param, 1),
+        );
+    },
 );
 
 #############################################################################
@@ -996,30 +995,30 @@ A single character that fits within C<`b> bits.  Unicode is supported, but it mu
 =cut
 
 $meta->add_type(
-   name       => 'Char',
-   parent     => Types::Standard::Str,
-   library    => __PACKAGE__,
-   constraint => sub { length($_) == 1 },  # length() will do a proper Unicode char length
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val)." && length($val) == 1";
-   },
-   constraint_generator => sub {
-      my $self = $Type::Tiny::parameterize_type;
-      my ($bits) = (shift);
-      $bits =~ /\A[0-9]+\z/ or _croak("Parameter to Char[`b] expected to be a positive integer; got $bits");
+    name       => 'Char',
+    parent     => Types::Standard::Str,
+    library    => __PACKAGE__,
+    constraint => sub { length($_) == 1 },  # length() will do a proper Unicode char length
+    inlined    => sub {
+        my ($self, $val) = @_;
+        $self->parent->inline_check($val)." && length($val) == 1";
+    },
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my ($bits) = (shift);
+        $bits =~ /\A[0-9]+\z/ or _croak("Parameter to Char[`b] expected to be a positive integer; got $bits");
 
-      Type::Tiny->new(
-         display_name => "Char[$bits]",
-         parent     => $self,
-         library    => __PACKAGE__,
-         constraint => sub { ord($_) < 2**$bits },
-         inlined    => sub {
-            my $val = $_[1];
-            Types::Standard::Str->inline_check($val)." && length($val) == 1 && ord($val) < 2**$bits";
-         },
-      );
-   },
+        Type::Tiny->new(
+            display_name => "Char[$bits]",
+            parent     => $self,
+            library    => __PACKAGE__,
+            constraint => sub { ord($_) < 2**$bits },
+            inlined    => sub {
+                my $val = $_[1];
+                Types::Standard::Str->inline_check($val)." && length($val) == 1 && ord($val) < 2**$bits";
+            },
+        );
+    },
 );
 
 42;
