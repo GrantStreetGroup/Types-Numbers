@@ -1,8 +1,8 @@
 package Types::Numbers;
 
-# AUTHORITY
-# VERSION
+our $AUTHORITY = 'cpan:GSG';
 # ABSTRACT: Type constraints for numbers
+# VERSION
 
 #############################################################################
 # Modules
@@ -31,7 +31,15 @@ use constant {
 
 sub _croak ($;@) { require Error::TypeTiny; goto \&Error::TypeTiny::croak }
 
-no warnings;  # don't warn on type checks
+=encoding utf8
+
+=head1 DESCRIPTION
+
+Because we deal with numbers every day in our programs and modules, this is an extensive
+L<Type::Tiny> library of number validations.  Like L<Type::Tiny>, these types work with
+all modern OO platforms and as a standalone type system.
+
+=cut
 
 #############################################################################
 # Basic globals
@@ -61,6 +69,53 @@ my $meta = __PACKAGE__->meta;
 
 ### TODO: Coercions where safe ###
 
+=head1 TYPES
+
+=head2 Overview
+
+All of these types strive for the accurate storage and validation of many different types of
+numbers, including some storage types that Perl doesn't natively support.
+
+The hierarchy of the types is as follows:
+
+    (T:S = From Types::Standard)
+
+    Item (T:S)
+        Defined (T:S)
+            NumLike
+                NumRange[`n, `p]
+                IntLike
+                    SignedInt[`b]
+                    UnsignedInt[`b]
+                PerlNum
+                    PerlSafeInt
+                    PerlSafeFloat
+                BlessedNum[`d]
+                    BlessedInt[`d]
+                    BlessedFloat[`d]
+                NaN
+                Inf[`s]
+                FloatSafeNum
+                    FloatBinary[`b, `e]
+                    FloatDecimal[`d, `e]
+                RealNum
+                    RealSafeNum
+                        FixedBinary[`b, `s]
+                        FixedDecimal[`d, `s]
+
+            Value (T:S)
+                Str (T:S)
+                    Char[`b]
+
+=head2 Basic types
+
+=head3 NumLike
+
+Behaves like C<LaxNum> from L<Types::Standard>, but will also accept blessed number types.  Unlike
+C<StrictNum>, it will accept C<NaN> and C<Inf> numbers.
+
+=cut
+
 # Moose and Type::Tiny types both don't seem to support Math::Big* = Num.
 # So, we have to start almost from stratch.
 my $_NumLike = $meta->add_type(
@@ -70,6 +125,13 @@ my $_NumLike = $meta->add_type(
    constraint => sub { looks_like_number $_ },
    inlined    => sub { "Scalar::Util::looks_like_number($_[1])" },
 );
+
+=head3 NumRange[`n, `p]
+
+Only accepts numbers within a certain range.  The two parameters are the minimums and maximums,
+inclusive.
+
+=cut
 
 my $_NumRange = $meta->add_type(
    name       => 'NumRange',
@@ -111,20 +173,12 @@ my $_NumRange_perlsafe = Type::Tiny->new(
    inlined    => sub { "$_[1] > ".$SAFE_NUM_MIN." && $_[1] < ".$SAFE_NUM_MAX },
 );
 
-### XXX: This string equality check is necessary because Math::BigInt seems to think 1.5 == 1.
-### However, this is problematic with long doubles that stringify into E notation.
-my $_IntLike = $meta->add_type(
-   name       => 'IntLike',
-   parent     => $_NumLike,
-   library    => __PACKAGE__,
-   constraint => sub { /\d+/ && int($_) == $_ && (int($_) eq $_ || !ref($_)) },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val)." && $val =~ /\\d+/ && int($val) == $val && (int($val) eq $val || !ref($val))";
-   },
-);
+=head3 PerlNum
 
-# This is basically LaxNum with a different parent
+Exactly like C<LaxNum>, but with a different parent.  Only accepts unblessed numbers.
+
+=cut
+
 my $_PerlNum = $meta->add_type(
    name       => 'PerlNum',
    parent     => $_NumLike,
@@ -133,10 +187,26 @@ my $_PerlNum = $meta->add_type(
    inlined    => Types::Standard::LaxNum->inlined,
 );
 
+=head3 BlessedNum
+
+Only accepts blessed numbers.  A blessed number would be using something like L<Math::BigInt> or
+L<Math::BigFloat>.  It doesn't directly C<isa> check those classes, just that the number is
+blessed.
+
+=head3 BlessedNum[`d]
+
+A blessed number that supports at least certain amount of digit accuracy.  The blessed number must
+support the C<accuracy> or C<div_scale> method.
+
+For example, C<BlessedNum[40]> would work for the default settings of L<Math::BigInt>, and supports
+numbers at least as big as 128-bit integers.
+
+=cut
+
 my $_BlessedNum = $meta->add_type( Type::Tiny::Intersection->new(
    name         => 'BlessedNum',
    display_name => 'BlessedNum',
-   library    => __PACKAGE__,
+   library      => __PACKAGE__,
    type_constraints => [ $_NumLike, Types::Standard::Object ],
    constraint_generator => sub {
       my $self = $Type::Tiny::parameterize_type;
@@ -166,6 +236,13 @@ my $_BlessedNum = $meta->add_type( Type::Tiny::Intersection->new(
    },
 ) );
 
+=head3 NaN
+
+A "not-a-number" value, either embedded into the Perl native float or a blessed C<NaN>,
+checked via C<is_nan>.
+
+=cut
+
 my $_NaN = $meta->add_type(
    name       => 'NaN',
    parent     => $_NumLike,
@@ -184,6 +261,21 @@ my $_NaN = $meta->add_type(
       ')';
    },
 );
+
+=head3 Inf
+
+An infinity value, either embedded into the Perl native float or a blessed C<Inf>, checked via
+C<is_inf>.
+
+=head3 Inf[`s]
+
+   Inf['+']
+   Inf['-']
+
+An infinity value with a certain sign, either embedded into the Perl native float or a blessed
+C<Inf>, checked via C<is_inf>.  The parameter must be a plus or minus character.
+
+=cut
 
 my $_Inf = $meta->add_type(
    name       => 'Inf',
@@ -253,6 +345,13 @@ my $_NaNInf = Type::Tiny::Union->new(
 
 my $_not_NaNInf = $_NaNInf->complementary_type;
 
+=head3 RealNum
+
+Like L</NumLike>, but does not accept NaN or Inf.  Closer to the spirit of C<StrictNum>, but
+accepts blessed numbers as well.
+
+=cut
+
 my $_RealNum = $meta->add_type( Type::Tiny::Intersection->new(
    name       => 'RealNum',
    display_name => 'RealNum',
@@ -262,6 +361,10 @@ my $_RealNum = $meta->add_type( Type::Tiny::Intersection->new(
 
 #############################################################################
 # Integer types
+
+=head2 Integers
+
+=cut
 
 # Helper subs
 sub __integer_bits_vars {
@@ -283,6 +386,55 @@ sub __integer_bits_vars {
    ;
 }
 
+=head3 IntLike
+
+Behaves like C<Int> from L<Types::Standard>, but will also accept blessed number types and integers
+in E notation.  There are no expectations of storage limitations here.  (See L</SignedInt> for
+that.)
+
+=cut
+
+### XXX: This string equality check is necessary because Math::BigInt seems to think 1.5 == 1.
+### However, this is problematic with long doubles that stringify into E notation.
+my $_IntLike = $meta->add_type(
+   name       => 'IntLike',
+   parent     => $_NumLike,
+   library    => __PACKAGE__,
+   constraint => sub { /\d+/ && int($_) == $_ && (int($_) eq $_ || !ref($_)) },
+   inlined    => sub {
+      my ($self, $val) = @_;
+      $self->parent->inline_check($val)." && $val =~ /\\d+/ && int($val) == $val && (int($val) eq $val || !ref($val))";
+   },
+);
+
+=head3 PerlSafeInt
+
+A Perl (unblessed) integer number than can safely hold the integer presented.  This varies between
+32-bit and 64-bit versions of Perl.
+
+For example, for most 32-bit versions of Perl, the largest integer than can be safely held in a
+4-byte NV (floating point number) is C<9007199254740992>.  Numbers can go higher than that, but due
+to the NV's mantissa length (accuracy), information is lost beyond this point.
+
+In this case, C<...992> would pass and C<...993> would fail.
+
+(Technically, the max integer is C<...993>, but we can't tell the difference between C<...993> and
+C<...994>, so the cut off point is C<...992>, inclusive.)
+
+Be aware that Perls compiled with "long doubles" have a unique problem with storage and information
+loss: their number form maintains accuracy while their (default) stringified form loses
+information.  For example, take the max safe integer for a long double:
+
+    $num = 18446744073709551615;
+    say $num;                 # 1.84467440737095516e+19
+    say $num == 18446744073709551615;  # true, so the full number is still there
+    say sprintf('%u', $num);  # 18446744073709551615
+
+These numbers are considered safe for storage.  If this is not preferred, consider a simple C</e/>
+check for stringified E notation.
+
+=cut
+
 my $_PerlSafeInt = $meta->add_type( Type::Tiny::Intersection->new(
    library    => __PACKAGE__,
    type_constraints => [ $_PerlNum, $_IntLike, $_NumRange_perlsafe ],
@@ -294,6 +446,18 @@ my $_PerlSafeInt = $meta->add_type( Type::Tiny::Intersection->new(
       "defined $val && !ref($val) && $val =~ /\\d+/ && int($val) == $val && ".$_NumRange_perlsafe->inline_check($val);
    },
 ) );
+
+=head3 BlessedInt
+
+A blessed number than is holding an integer.  (A L<Math::BigFloat> with an integer value would
+still pass.)
+
+=head3 BlessedInt[`d]
+
+A blessed number holding an integer of at most C<`d> digits (inclusive).  The blessed number
+container must also have digit accuracy to support this number.  (See L</BlessedNum[`d]>.)
+
+=cut
 
 my $_BlessedInt = $meta->add_type( Type::Tiny::Intersection->new(
    library    => __PACKAGE__,
@@ -336,6 +500,19 @@ my $_BlessedInt = $meta->add_type( Type::Tiny::Intersection->new(
    },
 ) );
 
+=head3 SignedInt
+
+A signed integer (blessed or otherwise) that can safely hold its own number.  This is different
+than L</IntLike>, which doesn't check for storage limitations.
+
+=head3 SignedInt[`b]
+
+A signed integer that can hold a C<`b> bit number and is within those boundaries.  One bit is
+reserved for the sign, so the max limit on a 32-bit integer is actually C<2**31-1> or
+C<2147483647>.
+
+=cut
+
 $meta->add_type( Type::Tiny::Union->new(
    #parent     => $_IntLike,
    library    => __PACKAGE__,
@@ -371,6 +548,18 @@ $meta->add_type( Type::Tiny::Union->new(
       );
    },
 ) );
+
+
+=head3 UnsignedInt
+
+Like L</SignedInt>, but with a minimum boundary of zero.
+
+=head3 UnsignedInt[`b]
+
+Like L</SignedInt[`b]>, but for unsigned integers.  Also, unsigned integers gain their extra bit,
+so the maximum is twice as high.
+
+=cut
 
 $meta->add_type(
    name       => 'UnsignedInt',
@@ -418,6 +607,46 @@ $meta->add_type(
 #############################################################################
 # Float/fixed types
 
+=head2 Floating-point numbers
+
+=head3 PerlSafeFloat
+
+A Perl native float that is in the "integer safe" range, or is a NaN/Inf value.
+
+This doesn't guarantee that every single fractional number is going to retain all of its
+information here.  It only guarantees that the whole number will be retained, even if the
+fractional part is partly or completely lost.
+
+=cut
+
+my $_PerlSafeFloat = $meta->add_type(
+   name       => 'PerlSafeFloat',
+   parent     => $_PerlNum,
+   library    => __PACKAGE__,
+   constraint => sub { $_NumRange_perlsafe->check($_) || Data::Float::float_is_nan($_) || Data::Float::float_is_infinite($_) },
+   inlined    => sub {
+      my ($self, $val) = @_;
+      $self->parent->inline_check($val).' && ('.
+         $_NumRange_perlsafe->inline_check($val)." || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)".
+      ')';
+   },
+);
+
+=head3 BlessedFloat
+
+A blessed number that will support fractional numbers.  A L<Math::BigFloat> number will pass,
+whereas a L<Math::BigInt> number will fail.  However, if that L<Math::BigInt> number is capable of
+upgrading to a L<Math::BigFloat>, it will pass.
+
+=head3 BlessedFloat[`d]
+
+A float-capable blessed number that supports at least certain amount of digit accuracy.  The number
+itself is not boundary checked, as it is excessively difficult to figure out the exact dimensions
+of a floating point number.  It would also not be useful for numbers like C<0.333333...> to fail
+checks.
+
+=cut
+
 my $_BlessedFloat = $meta->add_type(
    name       => 'BlessedFloat',
    parent     => $_BlessedNum,
@@ -447,18 +676,12 @@ my $_BlessedFloat = $meta->add_type(
    },
 );
 
-my $_PerlSafeFloat = $meta->add_type(
-   name       => 'PerlSafeFloat',
-   parent     => $_PerlNum,
-   library    => __PACKAGE__,
-   constraint => sub { $_NumRange_perlsafe->check($_) || Data::Float::float_is_nan($_) || Data::Float::float_is_infinite($_) },
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $self->parent->inline_check($val).' && ('.
-         $_NumRange_perlsafe->inline_check($val)." || Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val)".
-      ')';
-   },
-);
+=head3 FloatSafeNum
+
+A Union of L</PerlSafeFloat> and L</BlessedFloat>.  In other words, a float-capable number with
+some basic checks to make sure information is retained.
+
+=cut
 
 my $_FloatSafeNum = $meta->add_type( Type::Tiny::Union->new(
    library    => __PACKAGE__,
@@ -477,24 +700,30 @@ my $_FloatSafeNum = $meta->add_type( Type::Tiny::Union->new(
    },
 ) );
 
-my $_RealSafeNum = $meta->add_type( Type::Tiny::Intersection->new(
-   library    => __PACKAGE__,
-   type_constraints => [ $_RealNum, $_FloatSafeNum ],
-)->create_child_type(
-   name       => 'RealSafeNum',
-   library    => __PACKAGE__,
-   inlined    => sub {
-      my ($self, $val) = @_;
-      $_NumLike->inline_check($val).' && ('.
-         "( !ref($val) && ".$_NumRange_perlsafe->inline_check($val)." && not (".
-            "Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val))".
-         ') || ('.
-            Types::Standard::Object->inline_check($val)." && Scalar::Util::blessed($val)->new(1.2) == 1.2 && ".
-            "not ($val->can('is_nan') && $val->is_nan || $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) )".
-         ')'.
-      ')';
-   },
-) );
+=head3 FloatBinary[`b, `e]
+
+A floating-point number that can hold a C<`b> bit number with C<`e> bits of exponent, and is within
+those boundaries (or is NaN/Inf).  The bit breakdown follows traditional IEEE 754 floating point
+standards.  For example:
+
+    FloatBinary[32, 8] =
+        32 bits total (`b)
+        23 bit  mantissa (significand precision)
+         8 bit  exponent (`e)
+         1 bit  sign (+/-)
+
+Unlike the C<*Int> types, if Perl's native NV cannot support all dimensions of the floating-point
+number without losing information, then unblessed numbers are completely off the table.  For
+example, assuming a 32-bit machine:
+
+   (UnsignedInt[64])->check( 0 )        # pass
+   (UnsignedInt[64])->check( 2 ** 30 )  # pass
+   (UnsignedInt[64])->check( 2 ** 60 )  # fail, because 32-bit NVs can't safely hold it
+
+   (FloatBinary[64, 11])->check( 0 )    # fail
+   (FloatBinary[64, 11])->check( $any_unblessed_number )  # fail
+
+=cut
 
 ### NOTE: These two are very close to another type, but there's just too many variables
 ### to throw into a typical type
@@ -580,6 +809,14 @@ $meta->add_type(
    },
 );
 
+=head3 FloatDecimal[`d, `e]
+
+A floating-point number that can hold a C<`d> digit number with C<`e> digits of exponent.  Modeled
+after the IEEE 754 "decimal" float.  Rejects all Perl NVs that won't support the dimensions.  (See
+L</FloatBinary[`b, `e]>.)
+
+=cut
+
 $meta->add_type(
    name       => 'FloatDecimal',
    parent     => $_FloatSafeNum,
@@ -617,6 +854,43 @@ $meta->add_type(
       );
    },
 );
+
+=head2 Fixed-point numbers
+
+=head3 RealSafeNum
+
+Like L</FloatSafeNum>, but rejects any NaN/Inf.
+
+=cut
+
+my $_RealSafeNum = $meta->add_type( Type::Tiny::Intersection->new(
+   library    => __PACKAGE__,
+   type_constraints => [ $_RealNum, $_FloatSafeNum ],
+)->create_child_type(
+   name       => 'RealSafeNum',
+   library    => __PACKAGE__,
+   inlined    => sub {
+      my ($self, $val) = @_;
+      $_NumLike->inline_check($val).' && ('.
+         "( !ref($val) && ".$_NumRange_perlsafe->inline_check($val)." && not (".
+            "Data::Float::float_is_nan($val) || Data::Float::float_is_infinite($val))".
+         ') || ('.
+            Types::Standard::Object->inline_check($val)." && Scalar::Util::blessed($val)->new(1.2) == 1.2 && ".
+            "not ($val->can('is_nan') && $val->is_nan || $val->can('is_inf') && ($val->is_inf('+') || $val->is_inf('-')) )".
+         ')'.
+      ')';
+   },
+) );
+
+=head3 FixedBinary[`b, `s]
+
+A fixed-point number, represented as a C<`b> bit integer than has been shifted by C<`s> digits.  For example, a
+C<FixedBinary[32, 4]> has a max of C<2**31-1 / 10**4 = 214748.3647>.  Because integers do not hold NaN/Inf, this type fails
+on those.
+
+Otherwise, it has the same properties and caveats as the parameterized C<Float*> types.
+
+=cut
 
 $meta->add_type(
    name       => 'FixedBinary',
@@ -661,6 +935,13 @@ $meta->add_type(
    },
 );
 
+=head3 FixedDecimal[`d, `s]
+
+Like L</FixedBinary[`b, `s]>, but for a C<`d> digit integer.  Or, you could think of C<`d> and C<`s> as accuracy (significant
+figures) and decimal precision, respectively.
+
+=cut
+
 $meta->add_type(
    name       => 'FixedDecimal',
    parent     => $_RealSafeNum,
@@ -698,6 +979,22 @@ $meta->add_type(
 #############################################################################
 # Character types
 
+=head2 Characters
+
+Characters are basically encoded numbers, so there's a few types here.  If you need types that handle multi-length strings, you're
+better off using L<Types::Encodings>.
+
+=head3 Char
+
+A single character.  Unicode is supported, but it must be decoded first.  A multi-byte character that Perl thinks is two separate
+characters will fail this type.
+
+=head3 Char[`b]
+
+A single character that fits within C<`b> bits.  Unicode is supported, but it must be decoded first.
+
+=cut
+
 $meta->add_type(
    name       => 'Char',
    parent     => Types::Standard::Str,
@@ -726,243 +1023,3 @@ $meta->add_type(
 );
 
 42;
-
-__END__
-
-=encoding utf8
-
-=begin wikidoc
-
-= DESCRIPTION
-
-Because we deal with numbers every day in our programs and modules, this is an extensive [Type::Tiny] library of number validations.
-Like [Type::Tiny], these types work with all modern OO platforms and as a standalone type system.
-
-= TYPES
-
-== Overview
-
-All of these types strive for the accurate storage and validation of many different types of numbers, including some storage types
-that Perl doesn't natively support.
-
-The hierarchy of the types is as follows:
-
-   (T:S = From Types::Standard)
-
-   Item (T:S)
-      Defined (T:S)
-         NumLike
-            NumRange[`n, `p]
-            IntLike
-               SignedInt[`b]
-               UnsignedInt[`b]
-            PerlNum
-               PerlSafeInt
-               PerlSafeFloat
-            BlessedNum[`d]
-               BlessedInt[`d]
-               BlessedFloat[`d]
-            NaN
-            Inf[`s]
-            FloatSafeNum
-               FloatBinary[`b, `e]
-               FloatDecimal[`d, `e]
-            RealNum
-               RealSafeNum
-                  FixedBinary[`b, `s]
-                  FixedDecimal[`d, `s]
-
-         Value (T:S)
-            Str (T:S)
-               Char[`b]
-
-== Basic types
-
-=== NumLike
-
-Behaves like {LaxNum} from [Types::Standard], but will also accept blessed number types.  Unlike {StrictNum}, it will accept {NaN}
-and {Inf} numbers.
-
-=== NumRange[`n, `p]
-
-Only accepts numbers within a certain range.  The two parameters are the minimums and maximums, inclusive.
-
-=== PerlNum
-
-Exactly like {LaxNum}, but with a different parent.  Only accepts unblessed numbers.
-
-=== BlessedNum
-
-Only accepts blessed numbers.  A blessed number would be using something like [Math::BigInt] or [Math::BigFloat].  It doesn't
-directly {isa} check those classes, just that the number is blessed.
-
-=== BlessedNum[`d]
-
-A blessed number that supports at least certain amount of digit accuracy.  The blessed number must support the {accuracy} or
-{div_scale} method.
-
-For example, {BlessedNum[40]} would work for the default settings of [Math::BigInt], and supports numbers at least as big as
-128-bit integers.
-
-=== NaN
-
-A "not-a-number" value, either embedded into the Perl native float or a blessed {NaN}, checked via {is_nan}.
-
-=== Inf
-
-An infinity value, either embedded into the Perl native float or a blessed {Inf}, checked via {is_inf}.
-
-=== Inf[`s]
-
-   Inf['+']
-   Inf['-']
-
-An infinity value with a certain sign, either embedded into the Perl native float or a blessed {Inf}, checked via {is_inf}.  The
-parameter must be a plus or minus character.
-
-=== RealNum
-
-Like [/NumLike], but does not accept NaN or Inf.  Closer to the spirit of {StrictNum}, but accepts blessed numbers as well.
-
-== Integers
-
-=== IntLike
-
-Behaves like {Int} from [Types::Standard], but will also accept blessed number types and integers in E notation.  There are no
-expectations of storage limitations here.  (See [/SignedInt] for that.)
-
-=== PerlSafeInt
-
-A Perl (unblessed) integer number than can safely hold the integer presented.  This varies between 32-bit and 64-bit versions of Perl.
-
-For example, for most 32-bit versions of Perl, the largest integer than can be safely held in a 4-byte NV (floating point number) is
-{9007199254740992}.  Numbers can go higher than that, but due to the NV's mantissa length (accuracy), information is lost beyond
-this point.
-
-In this case, {...992} would pass and {...993} would fail.
-
-(Technically, the max integer is {...993}, but we can't tell the difference between {...993} and {...994}, so the cut
-off point is {...992}, inclusive.)
-
-Be aware that Perls compiled with "long doubles" have a unique problem with storage and information loss: their number form maintains
-accuracy while their (default) stringified form loses information.  For example, take the max safe integer for a long double:
-
-   $num = 18446744073709551615;
-   say $num;                 # 1.84467440737095516e+19
-   say $num == 18446744073709551615;  # true, so the full number is still there
-   say sprintf('%u', $num);  # 18446744073709551615
-
-These numbers are considered safe for storage.  If this is not preferred, consider a simple {/e/} check for stringified E notation.
-
-=== BlessedInt
-
-A blessed number than is holding an integer.  (A [Math::BigFloat] with an integer value would still pass.)
-
-=== BlessedInt[`d]
-
-A blessed number holding an integer of at most {`d} digits (inclusive).  The blessed number container must also have digit accuracy
-to support this number.  (See [/BlessedNum[`d]].)
-
-=== SignedInt
-
-A signed integer (blessed or otherwise) that can safely hold its own number.  This is different than {IntLike}, which doesn't check
-for storage limitations.
-
-=== SignedInt[`b]
-
-A signed integer that can hold a {`b} bit number and is within those boundaries.  One bit is reserved for the sign, so the max limit
-on a 32-bit integer is actually {2**31-1} or {2147483647}.
-
-=== UnsignedInt
-
-Like [/SignedInt], but with a minimum boundary of zero.
-
-=== UnsignedInt[`b]
-
-Like [/SignedInt[`b]], but for unsigned integers.  Also, unsigned integers gain their extra bit, so the maximum is twice as high.
-
-== Floating-point numbers
-
-=== PerlSafeFloat
-
-A Perl native float that is in the "integer safe" range, or is a NaN/Inf value.
-
-This doesn't guarantee that every single fractional number is going to retain all of its information here.  It only guarantees that
-the whole number will be retained, even if the fractional part is partly or completely lost.
-
-=== BlessedFloat
-
-A blessed number that will support fractional numbers.  A [Math::BigFloat] number will pass, whereas a [Math::BigInt] number will
-fail.  However, if that [Math::BigInt] number is capable of upgrading to a [Math::BigFloat], it will pass.
-
-=== BlessedFloat[`d]
-
-A float-capable blessed number that supports at least certain amount of digit accuracy.  The number itself is not boundary checked, as
-it is excessively difficult to figure out the exact dimensions of a floating point number.  It would also not be useful for numbers
-like {0.333333...} to fail checks.
-
-=== FloatSafeNum
-
-A Union of [/PerlSafeFloat] and [/BlessedFloat].  In other words, a float-capable number with some basic checks to make sure
-information is retained.
-
-=== FloatBinary[`b, `e]
-
-A floating-point number that can hold a {`b} bit number with {`e} bits of exponent, and is within those boundaries (or is NaN/Inf).
-The bit breakdown follows traditional IEEE 754 floating point standards.  For example:
-
-   FloatBinary[32, 8] =
-      32 bits total (`b)
-      23 bit  mantissa (significand precision)
-       8 bit  exponent (`e)
-       1 bit  sign (+/-)
-
-Unlike the {*Int} types, if Perl's native number cannot support all dimensions of the floating-point number without losing
-information, then unblessed numbers are completely off the table.  For example, assuming a 32-bit machine:
-
-   (UnsignedInt[64])->check( 0 )        # pass
-   (UnsignedInt[64])->check( 2 ** 30 )  # pass
-   (UnsignedInt[64])->check( 2 ** 60 )  # fail, because 32-bit NVs can't safely hold it
-
-   (FloatBinary[64, 11])->check( 0 )    # fail
-   (FloatBinary[64, 11])->check( $any_unblessed_number )  # fail
-
-=== FloatDecimal[`d, `e]
-
-A floating-point number that can hold a {`d} digit number with {`e} digits of exponent.  Modeled after the IEEE 754 "decimal" float.
-Rejects all Perl NVs that won't support the dimensions.  (See [/FloatBinary[`b, `e]].)
-
-== Fixed-point numbers
-
-=== RealSafeNum
-
-Like [/FloatSafeNum], but rejects any NaN/Inf.
-
-=== FixedBinary[`b, `s]
-
-A fixed-point number, represented as a {`b} bit integer than has been shifted by {`s} digits.  For example, a
-{FixedBinary[32, 4]} has a max of {2**31-1 / 10**4 = 214748.3647}.  Because integers do not hold NaN/Inf, this type fails
-on those.
-
-Otherwise, it has the same properties and caveats as the parameterized {Float*} types.
-
-=== FixedDecimal[`d, `s]
-
-Like [/FixedBinary[`b, `s]], but for a {`d} digit integer.  Or, you could think of {`d} and {`s} as accuracy (significant
-figures) and decimal precision, respectively.
-
-== Characters
-
-Characters are basically encoded numbers, so there's a few types here.  If you need types that handle multi-length strings, you're
-better off using [Types::Encodings].
-
-=== Char
-
-A single character.  Unicode is supported, but it must be decoded first.  A multi-byte character that Perl thinks is two separate
-characters will fail this type.
-
-=== Char[`b]
-
-A single character that fits within {`b} bits.  Unicode is supported, but it must be decoded first.
-
-=end wikidoc
