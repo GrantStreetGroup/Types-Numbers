@@ -223,8 +223,8 @@ my $_BlessedNum = $meta->add_type( Type::Tiny::Intersection->new(
             constraint => sub {
                 my $val = $_;
 
-                $val->can('accuracy')  && $val->accuracy  >= $digits ||
-                $val->can('div_scale') && $val->div_scale >= $digits;
+                $val->can('accuracy')  && $val->accuracy  && $val->accuracy  >= $digits ||
+                $val->can('div_scale') && $val->div_scale && $val->div_scale >= $digits;
             },
             inlined    => sub {
                 my ($self, $val) = @_;
