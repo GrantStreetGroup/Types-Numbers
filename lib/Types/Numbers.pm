@@ -16,7 +16,7 @@ our @EXPORT_OK = ();
 use Type::Library -base;
 use Type::Tiny::Intersection;
 use Type::Tiny::Union;
-use Types::Standard v0.030 ();  # support for Error::TypeTiny
+use Types::Standard v0.030 ('Bool');  # support for Error::TypeTiny
 
 use Scalar::Util 1.20 (qw(blessed looks_like_number));  # support for overloaded/blessed looks_like_number
 use POSIX 'ceil';
@@ -78,15 +78,26 @@ numbers, including some storage types that Perl doesn't natively support.
 
 The hierarchy of the types is as follows:
 
-    (T:S = From Types::Standard)
+    (T:S    = From Types::Standard)
+    (~T:C:N = Based on Types::Common::Numeric types)
 
     Item (T:S)
         Defined (T:S)
             NumLike
-                NumRange[`n, `p]
+                NumRange[`n, `p] (~T:C:N)
+                    PositiveNum (~T:C:N)
+                    PositiveOrZeroNum (~T:C:N)
+                    NegativeNum (~T:C:N)
+                    NegativeOrZeroNum (~T:C:N)
                 IntLike
                     SignedInt[`b]
                     UnsignedInt[`b]
+                    IntRange[`n, `p] (~T:C:N)
+                        PositiveInt (~T:C:N)
+                        PositiveOrZeroInt (~T:C:N)
+                        NegativeInt (~T:C:N)
+                        NegativeOrZeroInt (~T:C:N)
+                        SingleDigit (~T:C:N)
                 PerlNum
                     PerlSafeInt
                     PerlSafeFloat
@@ -128,8 +139,20 @@ my $_NumLike = $meta->add_type(
 
 =head3 NumRange[`n, `p]
 
-Only accepts numbers within a certain range.  The two parameters are the minimums and maximums,
-inclusive.
+Only accepts numbers within a certain range.  By default, the two parameters are the minimums and maximums,
+inclusive.  However, this type is also compatible with a few different parameter styles, a la L<Types::Common::Numeric>.
+
+The minimum/maximums can be omitted or undefined.  Or two extra boolean parameters can be added to specify exclusivity:
+
+    NumRange[0.1, 10.0, 0, 0]  # both inclusive
+    NumRange[0.1, 10.0, 0, 1]  # exclusive maximum, so 10.0 is invalid
+    NumRange[0.1, 10.0, 1, 0]  # exclusive minimum, so 0.1 is invalid
+    NumRange[0.1, 10.0, 1, 1]  # both exclusive
+
+    NumRange[0.1]                # lower bound check only
+    NumRange[undef, 10.0]        # upper bound check only
+    NumRange[0.1, undef, 1]      # lower bound check only, exclusively
+    NumRange[undef, 10.0, 1, 1]  # upper bound check only, exclusively (third param ignored)
 
 =cut
 
@@ -140,25 +163,50 @@ my $_NumRange = $meta->add_type(
     # kinda pointless without the parameters
     constraint_generator => sub {
         my $self = $Type::Tiny::parameterize_type;
-        my ($min, $max) = (shift, shift);
-        looks_like_number($min) or _croak( "First parameter to NumRange[`n, `p] expected to be a number; got $min");
-        looks_like_number($max) or _croak("Second parameter to NumRange[`n, `p] expected to be a number; got $max");
+        my ($min, $max, $min_excl, $max_excl) = @_;
+        !defined $min      or looks_like_number($min) or _croak( "First parameter to NumRange[`n, `p] expected to be a number; got $min");
+        !defined $max      or looks_like_number($max) or _croak("Second parameter to NumRange[`n, `p] expected to be a number; got $max");
+        !defined $min_excl or Bool->check($min_excl)  or _croak( "Third parameter to NumRange[`n, `p] expected to be a boolean; got $min_excl");
+        !defined $max_excl or Bool->check($max_excl)  or _croak("Fourth parameter to NumRange[`n, `p] expected to be a boolean; got $max_excl");
+
+        $min_excl = 0 unless defined $min_excl;
+        $max_excl = 0 unless defined $max_excl;
 
         my ($Imin, $Imax) = ($min, $max);
-        $Imin = blessed($min)."\->new('$min')" if (blessed $min);
-        $Imax = blessed($max)."\->new('$max')" if (blessed $max);
+        $Imin = blessed($min)."\->new('$min')" if defined $min && blessed $min;
+        $Imax = blessed($max)."\->new('$max')" if defined $max && blessed $max;
+
+        my $display_name = 'NumRange['.
+            join(', ', map { defined $_ ? $_ : 'undef' } ($min, $max, $min_excl, $max_excl) ).
+        ']';
 
         Type::Tiny->new(
-            display_name => "NumRange[$min, $max]",
-            parent     => $self,
-            library    => __PACKAGE__,
-            constraint => sub {
+            display_name => $display_name,
+            parent       => $self,
+            library      => __PACKAGE__,
+            constraint   => sub {
                 my $val = $_;
-                $val >= $min && $val <= $max;
+
+                # AND checks, so return false on the logically-opposite checks (>= --> <)
+                if (defined $min) {
+                    return !!0 if $val <  $min;
+                    return !!0 if $val == $min && $min_excl;
+                }
+                if (defined $max) {
+                    return !!0 if $val >  $max;
+                    return !!0 if $val == $max && $max_excl;
+                }
+
+                # NaN still passes both NumLike and the anti-checks above, so we use this seemingly-paradoxical
+                # logical check here to reject it
+                return $val == $val;
             },
             inlined    => sub {
                 my ($self, $val) = @_;
-                (undef, "$val >= $Imin", "$val <= $Imax");
+                my @checks = (undef);  # parent check
+                push @checks, join(' ', $val, ($min_excl ? '>' : '>='), $Imin) if defined $min;
+                push @checks, join(' ', $val, ($max_excl ? '<' : '<='), $Imax) if defined $max;
+                @checks;
             },
         );
     },
@@ -405,7 +453,56 @@ my $_IntLike = $meta->add_type(
     constraint => sub { /\d+/ && int($_) == $_ && (int($_) eq $_ || !ref($_)) },
     inlined    => sub {
         my ($self, $val) = @_;
-        $self->parent->inline_check($val)." && $val =~ /\\d+/ && int($val) == $val && (int($val) eq $val || !ref($val))";
+        (undef, "$val =~ /\\d+/", "int($val) == $val", "(int($val) eq $val || !ref($val))");
+    },
+);
+
+=head3 IntRange[`n, `p]
+
+Only accepts integers within a certain range.  By default, the two parameters are the minimums and maximums,
+inclusive.  Though, the minimum/maximums can be omitted or undefined.
+
+=cut
+
+my $_IntRange = $meta->add_type(
+    name       => 'IntRange',
+    parent     => $_IntLike,
+    library    => __PACKAGE__,
+    # kinda pointless without the parameters
+    constraint_generator => sub {
+        my $self = $Type::Tiny::parameterize_type;
+        my ($min, $max) = @_;
+        !defined $min or looks_like_number($min) or _croak( "First parameter to IntRange[`n, `p] expected to be a number; got $min");
+        !defined $max or looks_like_number($max) or _croak("Second parameter to IntRange[`n, `p] expected to be a number; got $max");
+
+        my ($Imin, $Imax) = ($min, $max);
+        $Imin = blessed($min)."\->new('$min')" if defined $min && blessed $min;
+        $Imax = blessed($max)."\->new('$max')" if defined $max && blessed $max;
+
+        my $display_name = 'IntRange['.
+            join(', ', map { defined $_ ? $_ : 'undef' } ($min, $max) ).
+        ']';
+
+        Type::Tiny->new(
+            display_name => $display_name,
+            parent       => $self,
+            library      => __PACKAGE__,
+            constraint   => sub {
+                my $val = $_;
+
+                # AND checks, so return false on the logically-opposite checks (>= --> <)
+                return !!0 if defined $min && $val < $min;
+                return !!0 if defined $max && $val > $max;
+                return !!1;
+            },
+            inlined    => sub {
+                my ($self, $val) = @_;
+                my @checks = (undef);  # parent check
+                push @checks, "$val >= $Imin" if defined $min;
+                push @checks, "$val <= $Imax" if defined $max;
+                @checks;
+            },
+        );
     },
 );
 
@@ -1036,6 +1133,122 @@ $meta->add_type(
             },
         );
     },
+);
+
+#############################################################################
+# Types from Types::Common::Numeric
+
+=head2 Types::Common::Numeric analogues
+
+The L<Types::Common::Numeric> module has a lot of useful types, but none of them are compatible with blessed numbers.  This module
+re-implements them to be grandchildren of this module's L</NumRange> and L</IntRange>, which allows blessed numbers.
+
+=head3 PositiveNum
+
+Accepts non-zero numbers in the positive range.
+
+=cut
+
+$meta->add_type(
+    name    => 'PositiveNum',
+    parent  => $_NumRange->parameterize(0, undef, 1),
+    message => sub { "Must be a positive number" },
+);
+
+=head3 PositiveOrZeroNum
+
+Accepts numbers in the positive range, or zero.
+
+=cut
+
+$meta->add_type(
+    name    => 'PositiveOrZeroNum',
+    parent  => $_NumRange->parameterize(0),
+    message => sub { "Must be a number greater than or equal to zero" },
+);
+
+=head3 PositiveInt
+
+Accepts non-zero integers in the positive range.
+
+=cut
+
+$meta->add_type(
+    name    => 'PositiveInt',
+    parent  => $_IntRange->parameterize(1),
+    message => sub { "Must be a positive integer" },
+);
+
+=head3 PositiveOrZeroInt
+
+Accepts integers in the positive range, or zero.
+
+=cut
+
+$meta->add_type(
+    name    => 'PositiveOrZeroInt',
+    parent  => $_IntRange->parameterize(0),
+    message => sub { "Must be an integer greater than or equal to zero" },
+);
+
+=head3 NegativeNum
+
+Accepts non-zero numbers in the negative range.
+
+=cut
+
+$meta->add_type(
+    name    => 'NegativeNum',
+    parent  => $_NumRange->parameterize(undef, 0, undef, 1),
+    message => sub { "Must be a negative number" },
+);
+
+=head3 NegativeOrZeroNum
+
+Accepts numbers in the negative range, or zero.
+
+=cut
+
+$meta->add_type(
+    name    => 'NegativeOrZeroNum',
+    parent  => $_NumRange->parameterize(undef, 0),
+    message => sub { "Must be a number less than or equal to zero" },
+);
+
+=head3 NegativeInt
+
+Accepts non-zero integers in the negative range.
+
+=cut
+
+$meta->add_type(
+    name    => 'NegativeInt',
+    parent  => $_IntRange->parameterize(undef, -1),
+    message => sub { "Must be a negative integer" },
+);
+
+=head3 NegativeOrZeroInt
+
+Accepts integers in the negative range, or zero.
+
+=cut
+
+$meta->add_type(
+    name    => 'NegativeOrZeroInt',
+    parent  => $_IntRange->parameterize(undef, 0),
+    message => sub { "Must be an integer less than or equal to zero" },
+);
+
+=head3 SingleDigit
+
+Accepts integers between -9 and 9.
+
+=cut
+
+$meta->add_type(
+    name    => 'SingleDigit',
+    parent  => $_IntRange->parameterize(-9, 9),
+    message => sub { "Must be a single digit" },
 );
 
 42;

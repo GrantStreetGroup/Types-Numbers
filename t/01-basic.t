@@ -9,7 +9,7 @@ use lib 't/lib';
 use NumbersTest;
 
 my @types = (
-    NumLike, NumRange, IntLike, PerlNum, BlessedNum, NaN, Inf, RealNum,
+    NumLike, NumRange, IntLike, IntRange, PerlNum, BlessedNum, NaN, Inf, RealNum,
     PerlSafeInt, BlessedInt, SignedInt, UnsignedInt,
     BlessedFloat, FloatSafeNum, RealSafeNum, FloatBinary, FloatDecimal, FixedBinary, FixedDecimal,
 );
@@ -18,6 +18,7 @@ my $pass_types = {
     NumLike       => [qw( perl bint bfloat   uint sint float nan inf )],
     NumRange      => [qw( perl bint bfloat   uint sint float nan inf )],
     IntLike       => [qw( perl bint bfloat   uint sint               )],
+    IntRange      => [qw( perl bint bfloat   uint sint               )],
     PerlNum       => [qw( perl               uint sint float nan inf )],
     BlessedNum    => [qw(      bint bfloat   uint sint float nan inf )],
     NaN           => [qw( perl bint bfloat                   nan     )],
@@ -58,6 +59,7 @@ $supertypes = {
 };
 $supertypes = {
     %$supertypes,
+    IntRange      => [@{$supertypes->{'IntLike'}}, IntLike],
     SignedInt     => [@{$supertypes->{'IntLike'}}, IntLike],
     UnsignedInt   => [@{$supertypes->{'IntLike'}}, IntLike],
     PerlSafeInt   => [@{$supertypes->{'PerlNum'}}, PerlNum],
@@ -74,33 +76,6 @@ $supertypes = {
     FixedDecimal  => [@{$supertypes->{'RealNum'}}, RealNum, RealSafeNum],
 };
 
-#   Item (T:S)
-#       Defined (T:S)
-#           NumLike
-#               NumRange
-#               IntLike
-#                   SignedInt[`b]
-#                   UnsignedInt[`b]
-#               PerlNum
-#                   PerlSafeFloat
-#                   PerlSafeInt
-#               BlessedNum[`d]
-#                   BlessedInt[`d]
-#                   BlessedFloat[`d]
-#               NaN
-#               Inf
-#               FloatSafeNum
-#                   FloatBinary[`b, `e]
-#                   FloatDecimal[`d, `e]
-#               RealNum
-#                   RealSafeNum
-#                       FixedBinary[`b, `s]
-#                       FixedDecimal[`d, `s]
-
-#           Value (T:S)
-#               Str (T:S)
-#                   Char[`b]
-
 plan tests => scalar(@types);
 
 foreach my $type (@types) {
@@ -108,8 +83,8 @@ foreach my $type (@types) {
     my $is_pass;
 
     my $should_pass = {
-        (map { $_ => 0 } @{ $pass_types->{'NumLike'} }),
-        (map { $_ => 1 } @{ $pass_types->{$name}     })
+        (map { $_ => 0 } @{ $pass_types->{'NumLike'} }),  # start with all zeros (since NumLike has all types)
+        (map { $_ => 1 } @{ $pass_types->{$name}     })   # fill in the right ones with ones
     };
 
     subtest $name => sub {
@@ -132,6 +107,7 @@ foreach my $type (@types) {
                 diag join(', ', map { $_->name.($_->name eq $_->display_name ? '' : ' ('.$_->display_name.')') } ($type, $type->parents));
         }
 
+        # No strings or undef
         numbers_test(undef, $type, 0);
         numbers_test('ABC', $type, 0);
 
@@ -140,12 +116,12 @@ foreach my $type (@types) {
         numbers_test(    0, $type, $is_pass);
         numbers_test(    1, $type, $is_pass);
         numbers_test(_SAFE_NUM_MAX-1, $type, $is_pass);
-        numbers_test(_SAFE_NUM_MAX+1, $type, $name =~ /Int(?!Like)|Float|Fixed|RealSafe/ ? 0 : $is_pass);
+        numbers_test(_SAFE_NUM_MAX+1, $type, $name =~ /Int(?!Like|Range)|Float|Fixed|RealSafe/ ? 0 : $is_pass);
 
         $is_pass = $should_pass->{perl} && $should_pass->{sint};
         numbers_test(   -1, $type, $is_pass);
         numbers_test(_SAFE_NUM_MIN+1, $type, $is_pass);
-        numbers_test(_SAFE_NUM_MIN-1, $type, $name =~ /Int(?!Like)|Float|Fixed|RealSafe/ ? 0 : $is_pass);
+        numbers_test(_SAFE_NUM_MIN-1, $type, $name =~ /Int(?!Like|Range)|Float|Fixed|RealSafe/ ? 0 : $is_pass);
 
         $is_pass = $should_pass->{perl} && $should_pass->{float};
         numbers_test(  0.5, $type, $is_pass);
