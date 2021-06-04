@@ -1,3 +1,5 @@
+requires 'perl', '5.8.8';
+
 requires 'Data::Float';
 requires 'Data::Integer';
 requires 'Error::TypeTiny';
