@@ -1141,7 +1141,9 @@ $meta->add_type(
 =head2 Types::Common::Numeric analogues
 
 The L<Types::Common::Numeric> module has a lot of useful types, but none of them are compatible with blessed numbers.  This module
-re-implements them to be grandchildren of this module's L</NumRange> and L</IntRange>, which allows blessed numbers.
+re-implements them to be grandchildren of L</NumLike> and L</IntLike>, which allows blessed numbers.
+
+Furthermore, the L</NumRange> and L</IntRange> checks are already implemented and described above.
 
 =head3 PositiveNum
 
