@@ -4,7 +4,7 @@ Types::Numbers - Type constraints for numbers
 
 # VERSION
 
-version v0.940.1
+version v1.0.0
 
 # DESCRIPTION
 
@@ -21,15 +21,26 @@ numbers, including some storage types that Perl doesn't natively support.
 
 The hierarchy of the types is as follows:
 
-    (T:S = From Types::Standard)
+    (T:S    = From Types::Standard)
+    (~T:C:N = Based on Types::Common::Numeric types)
 
     Item (T:S)
         Defined (T:S)
             NumLike
-                NumRange[`n, `p]
+                NumRange[`n, `p] (~T:C:N)
+                    PositiveNum (~T:C:N)
+                    PositiveOrZeroNum (~T:C:N)
+                    NegativeNum (~T:C:N)
+                    NegativeOrZeroNum (~T:C:N)
                 IntLike
                     SignedInt[`b]
                     UnsignedInt[`b]
+                    IntRange[`n, `p] (~T:C:N)
+                        PositiveInt (~T:C:N)
+                        PositiveOrZeroInt (~T:C:N)
+                        NegativeInt (~T:C:N)
+                        NegativeOrZeroInt (~T:C:N)
+                        SingleDigit (~T:C:N)
                 PerlNum
                     PerlSafeInt
                     PerlSafeFloat
@@ -59,8 +70,20 @@ Behaves like `LaxNum` from [Types::Standard](https://metacpan.org/pod/Types%3A%3
 
 ### NumRange\[\`n, \`p\]
 
-Only accepts numbers within a certain range.  The two parameters are the minimums and maximums,
-inclusive.
+Only accepts numbers within a certain range.  By default, the two parameters are the minimums and maximums,
+inclusive.  However, this type is also compatible with a few different parameter styles, a la [Types::Common::Numeric](https://metacpan.org/pod/Types%3A%3ACommon%3A%3ANumeric).
+
+The minimum/maximums can be omitted or undefined.  Or two extra boolean parameters can be added to specify exclusivity:
+
+    NumRange[0.1, 10.0, 0, 0]  # both inclusive
+    NumRange[0.1, 10.0, 0, 1]  # exclusive maximum, so 10.0 is invalid
+    NumRange[0.1, 10.0, 1, 0]  # exclusive minimum, so 0.1 is invalid
+    NumRange[0.1, 10.0, 1, 1]  # both exclusive
+
+    NumRange[0.1]                # lower bound check only
+    NumRange[undef, 10.0]        # upper bound check only
+    NumRange[0.1, undef, 1]      # lower bound check only, exclusively
+    NumRange[undef, 10.0, 1, 1]  # upper bound check only, exclusively (third param ignored)
 
 ### PerlNum
 
@@ -110,6 +133,11 @@ accepts blessed numbers as well.
 Behaves like `Int` from [Types::Standard](https://metacpan.org/pod/Types%3A%3AStandard), but will also accept blessed number types and integers
 in E notation.  There are no expectations of storage limitations here.  (See ["SignedInt"](#signedint) for
 that.)
+
+### IntRange\[\`n, \`p\]
+
+Only accepts integers within a certain range.  By default, the two parameters are the minimums and maximums,
+inclusive.  Though, the minimum/maximums can be omitted or undefined.
 
 ### PerlSafeInt
 
@@ -256,6 +284,49 @@ characters will fail this type.
 ### Char\[\`b\]
 
 A single character that fits within `` `b `` bits.  Unicode is supported, but it must be decoded first.
+
+## Types::Common::Numeric analogues
+
+The [Types::Common::Numeric](https://metacpan.org/pod/Types%3A%3ACommon%3A%3ANumeric) module has a lot of useful types, but none of them are compatible with blessed numbers.  This module
+re-implements them to be grandchildren of ["NumLike"](#numlike) and ["IntLike"](#intlike), which allows blessed numbers.
+
+Furthermore, the ["NumRange"](#numrange) and ["IntRange"](#intrange) checks are already implemented and described above.
+
+### PositiveNum
+
+Accepts non-zero numbers in the positive range.
+
+### PositiveOrZeroNum
+
+Accepts numbers in the positive range, or zero.
+
+### PositiveInt
+
+Accepts non-zero integers in the positive range.
+
+### PositiveOrZeroInt
+
+Accepts integers in the positive range, or zero.
+
+### NegativeNum
+
+Accepts non-zero numbers in the negative range.
+
+### NegativeOrZeroNum
+
+Accepts numbers in the negative range, or zero.
+
+### NegativeInt
+
+Accepts non-zero integers in the negative range.
+
+### NegativeOrZeroInt
+
+Accepts integers in the negative range, or zero.
+
+### SingleDigit
+
+Accepts integers between -9 and 9.
 
 # AUTHOR
 
