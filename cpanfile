@@ -10,7 +10,7 @@ requires 'Type::Tiny::Union';
 requires 'Types::Standard';
 
 requires 'Math::BigFloat';
-requires 'Math::BigInt', '!=1.999718, !=1.999719';
+requires 'Math::BigInt', '>1.999719'; # 718&719 cause test failures
 requires 'POSIX';
 requires 'constant';
 requires 'strict';
